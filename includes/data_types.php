@@ -297,7 +297,7 @@ class BCF_BitcoinBank_TextTypeClass extends BCF_BitcoinBank_BaseTypeClass
         'data_type' => 'string',
         'mysql_type' => 'TINYTEXT',
         'data_min'  => 0,
-        'data_max'  => 32
+        'data_max'  => 250
     );
     
 

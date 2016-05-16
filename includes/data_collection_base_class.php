@@ -167,7 +167,7 @@ class BCF_DataBaseClass
         return $arr;
     }
 
-    public function GetDataArray()
+    public function GetDataArray($public_data_only=false)
     {
         $data_array = array();
         
@@ -176,7 +176,17 @@ class BCF_DataBaseClass
             $data_object = $this->DataObjects[$key];
             if($data_object->HasValidData())
             {
-                $data_array[$key] = $data_object->GetString();
+                if ($public_data_only)
+                {
+                    if($attributes['public_data'] == true)
+                    {
+                        $data_array[ $key ] = $data_object->GetString();
+                    }
+                }
+                else
+                {
+                    $data_array[ $key ] = $data_object->GetString();
+                }
             }
         }
         

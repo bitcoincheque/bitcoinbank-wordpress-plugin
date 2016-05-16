@@ -440,6 +440,10 @@ class BCF_BitcoinBankAccountingClass extends BCF_BitcoinBank_DatabaseInterfaceCl
                 $cheque->SetNounce($secret_token);
                 $cheque->SetOwnerAccountId($issuer_account_id);
 
+                $collect_url_str = site_url() . '/wp-admin/admin-ajax.php?action=bcf_bitcoinbank_process_ajax_validate_cheque';
+                $collect_url = new BCF_BitcoinBank_TextTypeClass($collect_url_str);
+                $cheque->SetCollectUrl($collect_url);
+
                 $cheque_id_value = $this->DB_WriteRecord($cheque);
 
                 if($cheque_id_value > 0)
@@ -464,7 +468,7 @@ class BCF_BitcoinBankAccountingClass extends BCF_BitcoinBank_DatabaseInterfaceCl
     {
         $cheque_record = array();
 
-        if($this->SanitizeId($cheque_id))
+        if(SanitizeChequeId($cheque_id))
         {
             $record_list = $this->DB_GetChequeData($cheque_id);
 
@@ -478,10 +482,9 @@ class BCF_BitcoinBankAccountingClass extends BCF_BitcoinBank_DatabaseInterfaceCl
     }
     */
 
-    /*
     protected function GetCheque($cheque_id)
     {
-        if($this->SanitizeId($cheque_id))
+        if(SanitizeChequeId($cheque_id))
         {
             $cheque_record = $this->GetChequeRecord($cheque_id);
             if(!empty($cheque_record))
@@ -494,8 +497,7 @@ class BCF_BitcoinBankAccountingClass extends BCF_BitcoinBank_DatabaseInterfaceCl
             }
         }
     }
-    */
-    
+
     protected function GetChequeList($issuer_account_id)
     {
         $cheque_list = array();
@@ -531,14 +533,7 @@ class BCF_BitcoinBankAccountingClass extends BCF_BitcoinBank_DatabaseInterfaceCl
 
                 if(!is_null($transaction_id))
                 {
-                    $cheque_new_state = new BCF_BitcoinBank_ChequeStateTypeClass('EXPIRED');
-
-                    $cheque->SetChequeState($cheque_new_state);
-
-                    if($this->DB_UpdateRecord($cheque))
-                    {
-                        $result = false;
-                    }
+                    $result = $this->ChangeChequeState($cheque, CHEQUE_EVENT_EXPIRED);
                 }
                 // TODO End of atomic operation
             }
@@ -547,102 +542,107 @@ class BCF_BitcoinBankAccountingClass extends BCF_BitcoinBank_DatabaseInterfaceCl
         return $result;
     }
 
-    /*
     protected function ChangeChequeState($cheque, $event)
     {
         $result = false;
         
-        if ($cheque->SanitizeCheque())
+        if(SanitizeCheque($cheque))
         {
-            $cheque_id = $cheque->GetChequeId();
-            $cheque_record = $this->GetChequeRecord($cheque_id);
-            if (!empty($cheque_record))
-            {
-                $old_state = $cheque_record['state'];
+            $old_state = $cheque->GetChequeState();
 
-                $new_state = $this->ChequeStateMachine($old_state, $event);
-                if ($new_state != '')
+            $new_state = $this->ChequeStateMachine($old_state, $event);
+            if(!is_null($new_state))
+            {
+                $cheque->SetChequeState($new_state);
+
+                if($this->DB_UpdateRecord($cheque))
                 {
-                    if ($this->DB_UpdateChequeRecord($cheque_id, $new_state))
-                    {
-                        $result = true;
-                    }
+                    $result = true;
                 }
             }
+
         }
         return $result;
     }
-    */
             
     private function ChequeStateMachine($old_state, $event)
     {
-        $new_state = 'BUG';
-        
-        if($old_state == 'UNCLAIMED')
+        $cheque_new_state = null;
+
+        if(SanitizeChequeState($old_state))
         {
-            if($event == CHEQUE_EVENT_EXPIRED)
+            $old_state_str = $old_state->GetString();
+            $new_state     = 'BUG';
+
+            if($old_state_str == 'UNCLAIMED')
             {
-                $new_state = 'EXPIRED';
+                if($event == CHEQUE_EVENT_EXPIRED)
+                {
+                    $new_state = 'EXPIRED';
+                }
+                else if($event == CHEQUE_EVENT_CLAIM)
+                {
+                    $new_state = 'CLAIMED';
+                }
+                else if($event == CHEQUE_EVENT_HOLD)
+                {
+                    $new_state = '';
+                }
+                else if($event == CHEQUE_EVENT_RELEASE)
+                {
+                    $new_state = '';
+                }
             }
-            else if($event == CHEQUE_EVENT_CLAIM)
+            //***********************************************************************
+            elseif($old_state_str == 'CLAIMED')
             {
-                $new_state = 'CLAIMED';
+                if($event == CHEQUE_EVENT_EXPIRED)
+                {
+                    $new_state = '';
+                }
+                else if($event == CHEQUE_EVENT_CLAIM)
+                {
+                    $new_state = '';
+                }
+                else if($event == CHEQUE_EVENT_HOLD)
+                {
+                    $new_state = '';
+                }
+                else if($event == CHEQUE_EVENT_RELEASE)
+                {
+                    $new_state = '';
+                }
             }
-            else if($event == CHEQUE_EVENT_HOLD)
+            //***********************************************************************
+            elseif($old_state_str == 'EXPIRED')
             {
-                $new_state = '';
+                if($event == CHEQUE_EVENT_EXPIRED)
+                {
+                    $new_state = '';
+                }
+                else if($event == CHEQUE_EVENT_CLAIM)
+                {
+                    $new_state = '';
+                }
+                else if($event == CHEQUE_EVENT_HOLD)
+                {
+                    $new_state = '';
+                }
+                else if($event == CHEQUE_EVENT_RELEASE)
+                {
+                    $new_state = '';
+                }
             }
-            else if($event == CHEQUE_EVENT_RELEASE)
+
+            if($new_state == 'BUG')
             {
-                $new_state = '';
+                error_log('ChequeStateMachine Error: invalid state/event' . $old_state_str . '/' . $event);
             }
-        }
-        //***********************************************************************
-        elseif ($old_state == 'CLAIMED')
-        {
-            if($event == CHEQUE_EVENT_EXPIRED)
-            {
-                $new_state = '';
-            }
-            else if($event == CHEQUE_EVENT_CLAIM)
-            {
-                $new_state = '';
-            }
-            else if($event == CHEQUE_EVENT_HOLD)
-            {
-                $new_state = '';
-            }
-            else if($event == CHEQUE_EVENT_RELEASE)
-            {
-                $new_state = '';
-            }
-        }
-        //***********************************************************************
-        elseif ($old_state == 'EXPIRED')
-        {
-            if($event == CHEQUE_EVENT_EXPIRED)
-            {
-                $new_state = '';
-            }
-            else if($event == CHEQUE_EVENT_CLAIM)
-            {
-                $new_state = '';
-            }
-            else if($event == CHEQUE_EVENT_HOLD)
-            {
-                $new_state = '';
-            }
-            else if($event == CHEQUE_EVENT_RELEASE)
-            {
-                $new_state = '';
-            }
+
+            $cheque_new_state = new BCF_BitcoinBank_ChequeStateTypeClass($new_state);
         }
 
-        if($new_state == 'BUG')
-        {
-            error_log('ChequeStateMachine Error: invalid state/event'. $old_state. '/' . $event);
-        }
-        return $new_state;
+        return $cheque_new_state;
     }
 
 }

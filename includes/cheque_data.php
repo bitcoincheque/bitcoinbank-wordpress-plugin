@@ -39,6 +39,7 @@ class BCF_Bank_ChequeDataClass extends BCF_DataBaseClass
     const DB_FIELD_FIXED_FEE = 'fixed_fee';
     const DB_FIELD_COLLECTION_FEE = 'collect_fee';
     const DB_FIELD_STAMP = 'stamp';
+    const DB_FIELD_COLLECT_URL = 'collect_url';
     const DB_FIELD_ISSUE_DATETIME = 'issue_datetime';
     const DB_FIELD_EXPIRE_DATETIME = 'expire_datetime';
     const DB_FIELD_ESCROW_DATETIME = 'escrow_datetime';
@@ -58,127 +59,155 @@ class BCF_Bank_ChequeDataClass extends BCF_DataBaseClass
             'class_type'    => 'BCF_BitcoinBank_ChequeIdTypeClass',
             'db_field_name' => self::DB_FIELD_CHEQUE_ID,
             'db_primary_key'=> true,
-            'default_value' => 0
+            'default_value' => 0,
+            'public_data'   => true
         ),
         self::DB_FIELD_ISSUER_NAME => array(
             'class_type'    => 'BCF_BitcoinBank_NameTypeClass',
             'db_field_name' => self::DB_FIELD_ISSUER_NAME,
             'db_primary_key'=> false,
-            'default_value' => ''
+            'default_value' => '',
+            'public_data'   => true
         ),
         self::DB_FIELD_ISSUER_ADDRESS => array(
             'class_type'    => 'BCF_BitcoinBank_TextTypeClass',
             'db_field_name' => self::DB_FIELD_ISSUER_ADDRESS,
             'db_primary_key'=> false,
-            'default_value' => ''
+            'default_value' => '',
+            'public_data'   => true
         ),
         self::DB_FIELD_NOUNCE => array(
             'class_type'    => 'BCF_BitcoinBank_TextTypeClass',
             'db_field_name' => self::DB_FIELD_NOUNCE,
             'db_primary_key'=> false,
-            'default_value' => ''
+            'default_value' => '',
+            'public_data'   => true
         ),
         self::DB_FIELD_VALUE => array(
             'class_type'    => 'BCF_BitcoinBank_ValueTypeClass',
             'db_field_name' => self::DB_FIELD_VALUE,
             'db_primary_key'=> false,
-            'default_value' => 0
+            'default_value' => 0,
+            'public_data'   => true
         ),
         self::DB_FIELD_CURRENCY => array(
             'class_type'    => 'BCF_BitcoinBank_TextTypeClass',
             'db_field_name' => self::DB_FIELD_CURRENCY,
             'db_primary_key'=> false,
-            'default_value' => ''
+            'default_value' => '',
+            'public_data'   => true
         ),
         self::DB_FIELD_FIXED_FEE => array(
             'class_type'    => 'BCF_BitcoinBank_ValueTypeClass',
             'db_field_name' => self::DB_FIELD_FIXED_FEE,
             'db_primary_key'=> false,
-            'default_value' => 0
+            'default_value' => 0,
+            'public_data'   => true
         ),
         self::DB_FIELD_COLLECTION_FEE => array(
             'class_type'    => 'BCF_BitcoinBank_ValueTypeClass',
             'db_field_name' => self::DB_FIELD_COLLECTION_FEE,
             'db_primary_key'=> false,
-            'default_value' => 0
+            'default_value' => 0,
+            'public_data'   => true
         ),
         self::DB_FIELD_STAMP => array(
             'class_type'    => 'BCF_BitcoinBank_TextTypeClass',
             'db_field_name' => self::DB_FIELD_STAMP,
             'db_primary_key'=> false,
-            'default_value' => ''
+            'default_value' => '',
+            'public_data'   => true
+        ),
+        self::DB_FIELD_COLLECT_URL => array(
+            'class_type'    => 'BCF_BitcoinBank_TextTypeClass',
+            'db_field_name' => self::DB_FIELD_COLLECT_URL,
+            'db_primary_key'=> false,
+            'default_value' => '',
+            'public_data'   => true
         ),
         self::DB_FIELD_ISSUE_DATETIME => array(
             'class_type'    => 'BCF_BitcoinBank_DateTimeTypeClass',
             'db_field_name' => self::DB_FIELD_ISSUE_DATETIME,
             'db_primary_key'=> false,
-            'default_value' => ''
+            'default_value' => '',
+            'public_data'   => true
         ),
         self::DB_FIELD_EXPIRE_DATETIME => array(
             'class_type'    => 'BCF_BitcoinBank_DateTimeTypeClass',
             'db_field_name' => self::DB_FIELD_EXPIRE_DATETIME,
             'db_primary_key'=> false,
-            'default_value' => ''
+            'default_value' => '',
+            'public_data'   => true
         ),
         self::DB_FIELD_ESCROW_DATETIME => array(
             'class_type'    => 'BCF_BitcoinBank_DateTimeTypeClass',
             'db_field_name' => self::DB_FIELD_ESCROW_DATETIME,
             'db_primary_key'=> false,
-            'default_value' => ''
+            'default_value' => '',
+            'public_data'   => true
         ),
         self::DB_FIELD_RECEIVER_NAME => array(
             'class_type'    => 'BCF_BitcoinBank_NameTypeClass',
             'db_field_name' => self::DB_FIELD_RECEIVER_NAME,
             'db_primary_key'=> false,
-            'default_value' => ''
+            'default_value' => '',
+            'public_data'   => true
         ),
         self::DB_FIELD_RECEIVER_ADDRESS => array(
             'class_type'    => 'BCF_BitcoinBank_TextTypeClass',
             'db_field_name' => self::DB_FIELD_RECEIVER_ADDRESS,
             'db_primary_key'=> false,
-            'default_value' => ''
+            'default_value' => '',
+            'public_data'   => true
         ),
         self::DB_FIELD_RECEIVER_WALLET => array(
             'class_type'    => 'BCF_BitcoinBank_TextTypeClass',
             'db_field_name' => self::DB_FIELD_RECEIVER_WALLET,
             'db_primary_key'=> false,
-            'default_value' => ''
+            'default_value' => '',
+            'public_data'   => true
         ),
         self::DB_FIELD_RECEIVER_REFERENCE => array(
             'class_type'    => 'BCF_BitcoinBank_TextTypeClass',
             'db_field_name' => self::DB_FIELD_RECEIVER_REFERENCE,
             'db_primary_key'=> false,
-            'default_value' => ''
+            'default_value' => '',
+            'public_data'   => true
         ),
         self::DB_FIELD_USER_REFERENCE => array(
             'class_type'    => 'BCF_BitcoinBank_TextTypeClass',
             'db_field_name' => self::DB_FIELD_USER_REFERENCE,
             'db_primary_key'=> false,
-            'default_value' => ''
+            'default_value' => '',
+            'public_data'   => true
         ),
         self::DB_FIELD_USER_NAME => array(
             'class_type'    => 'BCF_BitcoinBank_NameTypeClass',
             'db_field_name' => self::DB_FIELD_USER_NAME,
             'db_primary_key'=> false,
-            'default_value' => ''
+            'default_value' => '',
+            'public_data'   => true
         ),
         self::DB_FIELD_USER_ADDRESS => array(
             'class_type'    => 'BCF_BitcoinBank_TextTypeClass',
             'db_field_name' => self::DB_FIELD_USER_ADDRESS,
             'db_primary_key'=> false,
-            'default_value' => ''
+            'default_value' => '',
+            'public_data'   => true
         ),
         self::DB_FIELD_STATE => array(
             'class_type'    => 'BCF_BitcoinBank_ChequeStateTypeClass',
             'db_field_name' => self::DB_FIELD_STATE,
             'db_primary_key'=> false,
-            'default_value' => ''
+            'default_value' => '',
+            'public_data'   => false
         ),
         self::DB_FIELD_USER_ACCOUNT_ID => array(
             'class_type'    => 'BCF_BitcoinBank_AccountIdTypeClass',
             'db_field_name' => self::DB_FIELD_USER_ACCOUNT_ID,
             'db_primary_key'=> false,
-            'default_value' => 0
+            'default_value' => 0,
+            'public_data'   => false
         )
     );
 
@@ -335,6 +364,24 @@ class BCF_Bank_ChequeDataClass extends BCF_DataBaseClass
         if(SanitizeText($stamp))
         {
             $result = $this->SetDataObject(self::DB_FIELD_STAMP, $stamp);
+        }
+
+        return $result;
+    }
+
+
+    public function GetCollectUrl()
+    {
+        return $this->GetDataObjects(self::DB_FIELD_COLLECT_URL);
+    }
+
+    public function SetCollectUrl($collect_url)
+    {
+        $result = false;
+
+        if(SanitizeText($collect_url))
+        {
+            $result = $this->SetDataObject(self::DB_FIELD_COLLECT_URL, $collect_url);
         }
 
         return $result;
@@ -566,10 +613,47 @@ class BCF_Bank_ChequeDataClass extends BCF_DataBaseClass
 
     public function GetJson()
     {
-        $data_array = $this->GetDataArray();
+        $public_data_only = true;
+        $data_array = $this->GetDataArray($public_data_only);
 
         $json = json_encode($data_array);
 
         return $json;
     }
+
+    public function CompareCheque($other_data_array)
+    {
+        $result = 'OK';
+        
+        foreach($this->MetaData as $key => $attributes)
+        {
+            if($attributes['public_data'] == true)
+            {
+                $my_data_object = $this->DataObjects[ $key ];
+                $my_data_str    = $my_data_object->GetString();
+
+                $other_data_str = $other_data_array[ $key ];
+
+                if($my_data_str != $other_data_str)
+                {
+                    $result = 'Cheque mismatch field ' . $key . 'mismatch: ' . $my_data_str . ' != ' . $other_data_array;
+                    break;
+                }
+            }
+        }
+        
+        return $result; 
+    }
+}
+
+function SanitizeCheque($cheque)
+{
+    if(gettype($cheque) == 'object')
+    {
+        if(get_class($cheque) == 'BCF_Bank_ChequeDataClass' )
+        {
+            return $cheque->SanitizeData();
+        }
+    }
+    return false;
 }

@@ -292,26 +292,24 @@ class BCF_BitcoinBank_DatabaseInterfaceClass
         return $account_info_list;
     }
 
-    /*
-    protected function DB_GetChequeData($cheque_state)
+    protected function DB_GetChequeData($cheque_id)
     {
         $cheque_data = NULL;
 
-        if(SanitizeChequeState($cheque_state))
+        if(SanitizeChequeId($cheque_id))
         {
-            $field_value = $cheque_state->GetString();
+            $field_value = $cheque_id->GetString();
 
-            $record_list = $this->DB_GetRecordListByFieldValue( BCF_Bank_ChequeDataClass::DB_TABLE_NAME, BCF_Bank_ChequeDataClass::DB_FIELD_USER_ID, $field_value );
+            $record_list = $this->DB_GetRecordListByFieldValue( BCF_Bank_ChequeDataClass::DB_TABLE_NAME, BCF_Bank_ChequeDataClass::DB_FIELD_CHEQUE_ID, $field_value );
             if ( count( $record_list ) == 1 )
             {
-                $cheque_data = new BCF_BitcoinAccountDataClass;
+                $cheque_data = new BCF_Bank_ChequeDataClass();
                 $cheque_data->SetDataFromDbRecord( $record_list[0] );
             }
         }
 
         return $cheque_data;
     }
-    */
 
     protected function DB_GetChequeDataListByState($cheque_state)
     {

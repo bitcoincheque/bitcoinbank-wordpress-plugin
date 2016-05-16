@@ -74,15 +74,15 @@ class BCF_BitcoinBankChequeHandlerClass extends BCF_BitcoinBankAccountingClass
     {
         $result = 'Undefined error.';
 
-        $validate_cheque = new BCF_BitCoinChequeClass;
-        if($validate_cheque->SetDataFromArray($cheque_data_array))
+        $validate_cheque = new BCF_Bank_ChequeDataClass();
+        if($validate_cheque->SetDataFromDbRecord($cheque_data_array))
         {
             $validate_cheque_id = $validate_cheque->GetChequeId();
 
-            $my_cheque = $this->GetCheque($validate_cheque_id);
+            $my_cheque = $this->DB_GetChequeData($validate_cheque_id);
             if(!empty($my_cheque))
             {
-                $result = $validate_cheque->compare($my_cheque);
+                $result = $my_cheque->CompareCheque($cheque_data_array);
                 if($result == 'OK' and $claim)
                 {
                     $this->ChangeChequeState($my_cheque, 'CHEQUE_EVENT_CLAIM');

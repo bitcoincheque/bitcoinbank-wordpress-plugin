@@ -93,20 +93,25 @@ function bcf_bitcoinbank_process_ajax_validate_cheque()
 
 function bcf_bitcoinbank_process_ajax_request_cheque()
 {
-    $amount = intval(bcf_sanitize_input_text($_REQUEST['amount']));
-    $account_id = intval(bcf_sanitize_input_text($_REQUEST['account']));
-    $account_password = bcf_sanitize_input_text($_REQUEST['passwd']);
-    $reference = bcf_sanitize_input_text($_REQUEST['ref']);
+    $amount_val = intval(bcf_sanitize_input_text($_REQUEST['amount']));
+    $account_id_val = intval(bcf_sanitize_input_text($_REQUEST['account']));
+    $account_password_str = bcf_sanitize_input_text($_REQUEST['passwd']);
+    $reference_str = bcf_sanitize_input_text($_REQUEST['ref']);
+
+    $account_id       = new BCF_BitcoinBank_AccountIdTypeClass($account_id_val);
+    $account_password = new BCF_BitcoinBank_PasswordTypeClass($account_password_str);
+    $amount           = new BCF_BitcoinBank_ValueTypeClass($amount_val);
+    $reference        = new BCF_BitcoinBank_TextTypeClass($reference_str);
 
     $cheque_handler = new BCF_BitcoinBankChequeHandlerClass();
 
-    $cheque_json = $cheque_handler->IssueCheque($account_id, $account_password, $amount, 300, 3600, $reference);
+    $cheque = $cheque_handler->IssueCheque($account_id, $account_password, $amount, 300, 3600, $reference);
 
-    if($cheque_json != '')
+    if(!is_null($cheque))
     {
         //error_log('Issued   cheque:' . $cheque_json);
         //error_log($cheque_json);
-        echo $cheque_json;
+        echo $cheque->GetJson();
     }
     else
     {
