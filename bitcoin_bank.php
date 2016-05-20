@@ -33,19 +33,14 @@ License URI: license.txt
 Text Domain: bcf_bitcoinbank
 */
 
+namespace BCF_BitcoinBank;
+
 require_once('includes/user_handler.php');
 require_once('includes/cheque_handler.php');
-require_once( 'includes/html_table.php' );
-
-define ('BCF_BITCOINBANK_DB_TYPE_TRANSACTION_ID', 'INT(6) UNSIGNED');
-define ('BCF_BITCOINBANK_DB_TYPE_USER_ID', 'INT(6) UNSIGNED');
-define ('BCF_BITCOINBANK_DB_TYPE_CHEQUE_ID', 'INT(6) UNSIGNED');
-define ('BCF_BITCOINBANK_DB_TYPE_ACCOUNT_ID', 'INT(6)');
-define ('BCF_BITCOINBANK_DB_TYPE_TIMESTAMP', 'TIMESTAMP');
-define ('BCF_BITCOINBANK_DB_TYPE_CURRENCY', 'BIGINT');
+require_once('includes/html_table.php');
 
 
-function bcf_sanitize_input_text($text)
+function SanitizeInputText($text)
 {
     $text = str_replace('<', '&lt;', $text);
     $text = str_replace('>', '&gt;', $text);
@@ -54,11 +49,11 @@ function bcf_sanitize_input_text($text)
 
 }
 
-function bcf_bitcoinbank_process_ajax_validate_cheque()
+function ProcessAjaxValidateCheque()
 {
-    $cheque_handler = new BCF_BitcoinBankChequeHandlerClass();
+    $cheque_handler = new ChequeHandlerClass();
 
-    $cheque_json = bcf_sanitize_input_text($_REQUEST['cheque']);
+    $cheque_json = SanitizeInputText($_REQUEST['cheque']);
     $cheque_json = str_replace ('\"', '"', $cheque_json);
     $cheque_json = str_replace ('\\', '', $cheque_json);
     $cheque_json = rawurldecode($cheque_json);
@@ -91,19 +86,19 @@ function bcf_bitcoinbank_process_ajax_validate_cheque()
     die();
 }
 
-function bcf_bitcoinbank_process_ajax_request_cheque()
+function ProcessAjaxRequestCheque()
 {
-    $amount_val = intval(bcf_sanitize_input_text($_REQUEST['amount']));
-    $account_id_val = intval(bcf_sanitize_input_text($_REQUEST['account']));
-    $account_password_str = bcf_sanitize_input_text($_REQUEST['passwd']);
-    $reference_str = bcf_sanitize_input_text($_REQUEST['ref']);
+    $amount_val = intval(SanitizeInputText($_REQUEST['amount']));
+    $account_id_val = intval(SanitizeInputText($_REQUEST['account']));
+    $account_password_str = SanitizeInputText($_REQUEST['passwd']);
+    $reference_str = SanitizeInputText($_REQUEST['ref']);
 
-    $account_id       = new BCF_BitcoinBank_AccountIdTypeClass($account_id_val);
-    $account_password = new BCF_BitcoinBank_PasswordTypeClass($account_password_str);
-    $amount           = new BCF_BitcoinBank_ValueTypeClass($amount_val);
-    $reference        = new BCF_BitcoinBank_TextTypeClass($reference_str);
+    $account_id       = new AccountIdTypeClass($account_id_val);
+    $account_password = new PasswordTypeClass($account_password_str);
+    $amount           = new ValueTypeClass($amount_val);
+    $reference        = new TextTypeClass($reference_str);
 
-    $cheque_handler = new BCF_BitcoinBankChequeHandlerClass();
+    $cheque_handler = new ChequeHandlerClass();
 
     $cheque = $cheque_handler->IssueCheque($account_id, $account_password, $amount, 300, 3600, $reference);
 
@@ -121,8 +116,7 @@ function bcf_bitcoinbank_process_ajax_request_cheque()
 
     die();
 }
-
-function bcf_MakeHtmlSelectOptions($user_handler, $account_data_list, $account_selected, $currency)
+function MakeHtmlSelectOptions($user_handler, $account_data_list, $account_selected, $currency)
 {
     $html = '<select name="select_account">';
     foreach ( $account_data_list as $account_data )
@@ -150,16 +144,16 @@ function bcf_MakeHtmlSelectOptions($user_handler, $account_data_list, $account_s
     return $html;
 }
 
-function bcf_MakeHtmlFormSelectAccount($user_handler, $account_data_list, $account_selected, $currency)
+function MakeHtmlFormSelectAccount($user_handler, $account_data_list, $account_selected, $currency)
 {
 
-    $html = '<form name="bcf_withdraw_form">'; // method="POST" onsubmit="return form_validation()" action="../customer-details.php">';
+    $html = '<form name="bcf_withdraw_form">';
     $html .= '<table style="border-style:none;" width="100%"><tr>';
-    $html .= '<td style="border-style:none;" width="30%">My accounts:</td>'; //<input type="text" value='. $account_id .' id="bcf_bitcoinbank_withdraw_account" name="bcf_bitcoinbank_withdraw_account" /></td>';
+    $html .= '<td style="border-style:none;" width="30%">My accounts:</td>';
 
     $html .= '<td style="border-style:none;">';
 
-    $html .= bcf_MakeHtmlSelectOptions($user_handler, $account_data_list, $account_selected, $currency);
+    $html .= MakeHtmlSelectOptions($user_handler, $account_data_list, $account_selected, $currency);
 
     $html .= '</td>';
 
@@ -170,14 +164,14 @@ function bcf_MakeHtmlFormSelectAccount($user_handler, $account_data_list, $accou
     return $html;
 }
 
-function bcf_bitcoinbank_list_user_transactions($atts)
+function ListUserTransactions($atts)
 {
     if (is_user_logged_in()) {
         $currency = 'uBTC';
 
         if ( ! empty( $_REQUEST['select_account'] ) ) {
-            $show_account_str = bcf_sanitize_input_text( $_REQUEST['select_account'] );
-            $account_selected = new BCF_BitcoinBank_AccountIdTypeClass(0);
+            $show_account_str = SanitizeInputText( $_REQUEST['select_account'] );
+            $account_selected = new AccountIdTypeClass(0);
             $account_selected->SetDataFromString($show_account_str);
         }
         else
@@ -185,7 +179,7 @@ function bcf_bitcoinbank_list_user_transactions($atts)
             $account_selected = null;
         }
 
-        $user_handler = new BCF_BitcoinBankUserHandlerClass();
+        $user_handler = new UserHandlerClass();
         $account_data_list = $user_handler->GetAccountInfoListCurrentUser();
 
 
@@ -196,7 +190,7 @@ function bcf_bitcoinbank_list_user_transactions($atts)
         }
         $transaction_records_list = $user_handler->GetTransactionListForCurrentUser($account_selected);
 
-        $html_select_account_form = bcf_MakeHtmlFormSelectAccount($user_handler, $account_data_list, $account_selected, $currency);
+        $html_select_account_form = MakeHtmlFormSelectAccount($user_handler, $account_data_list, $account_selected, $currency);
 
         $html_table = new HtmlTableClass();
         $html_table->AddLineItem('Trans.Id');
@@ -253,15 +247,15 @@ function bcf_bitcoinbank_list_user_transactions($atts)
     return $output;
 }
 
-function bcf_bitcoinbank_withdraw()
+function Withdraw()
 {
     if(is_user_logged_in())
     {
         $currency = 'uBTC';
 
         if ( ! empty( $_REQUEST['select_account'] ) ) {
-            $show_account_str = bcf_sanitize_input_text( $_REQUEST['select_account'] );
-            $account_selected = new BCF_BitcoinBank_AccountIdTypeClass(0);
+            $show_account_str = SanitizeInputText( $_REQUEST['select_account'] );
+            $account_selected = new AccountIdTypeClass(0);
             $account_selected->SetDataFromString($show_account_str);
         }
         else
@@ -269,17 +263,17 @@ function bcf_bitcoinbank_withdraw()
             $account_selected = null;
         }
 
-        $user_handler = new BCF_BitcoinBankUserHandlerClass();
+        $user_handler = new UserHandlerClass();
 
         $withdraw_output = '';
         if(!empty($_REQUEST['select_account'])) {
-            $from_account_id_str = bcf_sanitize_input_text( $_REQUEST['select_account'] );
-            $to_account_id_str = intval(bcf_sanitize_input_text($_REQUEST['depost_account']));
-            $amount_str = intval(bcf_sanitize_input_text($_REQUEST['amount']));
+            $from_account_id_str = SanitizeInputText( $_REQUEST['select_account'] );
+            $to_account_id_str = intval(SanitizeInputText($_REQUEST['depost_account']));
+            $amount_str = intval(SanitizeInputText($_REQUEST['amount']));
 
-            $from_account_id = new BCF_BitcoinBank_AccountIdTypeClass(intval($from_account_id_str));
-            $to_account_id = new BCF_BitcoinBank_AccountIdTypeClass(intval($to_account_id_str));
-            $amount = new BCF_BitcoinBank_ValueTypeClass(intval($amount_str));
+            $from_account_id = new AccountIdTypeClass(intval($from_account_id_str));
+            $to_account_id = new AccountIdTypeClass(intval($to_account_id_str));
+            $amount = new ValueTypeClass(intval($amount_str));
 
             $transaction_id = $user_handler->MakeTransactionToAccount($from_account_id, $to_account_id, $amount);
             if (!is_null($transaction_id))
@@ -305,13 +299,13 @@ function bcf_bitcoinbank_withdraw()
 
         $account_data_list = $user_handler->GetAccountInfoListCurrentUser();
 
-        $output = '<form name="bcf_withdraw_form">'; // method="POST" onsubmit="return form_validation()" action="../customer-details.php">';
+        $output = '<form name="bcf_withdraw_form">';
         $output .= '<table style="border-style:none;" width="100%"><tr>';
-        $output .= '<td style="border-style:none;" width="30%">From my account:</td>'; //<input type="text" value='. $account_id .' id="bcf_bitcoinbank_withdraw_account" name="bcf_bitcoinbank_withdraw_account" /></td>';
+        $output .= '<td style="border-style:none;" width="30%">From my account:</td>';
 
         $output .= '<td style="border-style:none;">';
 
-        $output .= bcf_MakeHtmlSelectOptions($user_handler, $account_data_list, $account_selected, $currency);
+        $output .= MakeHtmlSelectOptions($user_handler, $account_data_list, $account_selected, $currency);
 
         $output .= '</td>';
 
@@ -336,15 +330,15 @@ function bcf_bitcoinbank_withdraw()
     return $output . $withdraw_output;
 }
 
-function bcf_bitcoinbank_list_user_cheques()
+function ListUserCheques()
 {
     if (is_user_logged_in())
     {
         $currency = 'uBTC';
 
         if ( ! empty( $_REQUEST['select_account'] ) ) {
-            $show_account_str = bcf_sanitize_input_text( $_REQUEST['select_account'] );
-            $account_selected = new BCF_BitcoinBank_AccountIdTypeClass(0);
+            $show_account_str = SanitizeInputText( $_REQUEST['select_account'] );
+            $account_selected = new _AccountIdTypeClass(0);
             $account_selected->SetDataFromString($show_account_str);
         }
         else
@@ -352,7 +346,7 @@ function bcf_bitcoinbank_list_user_cheques()
             $account_selected = null;
         }
 
-        $user_handler = new BCF_BitcoinBankUserHandlerClass();
+        $user_handler = new UserHandlerClass();
         $account_data_list = $user_handler->GetAccountInfoListCurrentUser();
 
 
@@ -362,7 +356,7 @@ function bcf_bitcoinbank_list_user_cheques()
         }
         $cheque_list = $user_handler->GetChequeListCurrentUser($account_selected);
 
-        $html_select_account_form = bcf_MakeHtmlFormSelectAccount($user_handler, $account_data_list, $account_selected, $currency);
+        $html_select_account_form = MakeHtmlFormSelectAccount($user_handler, $account_data_list, $account_selected, $currency);
 
         $html_table = new HtmlTableClass();
         $html_table->AddLineItem('Cheque No.');
@@ -406,18 +400,18 @@ function bcf_bitcoinbank_list_user_cheques()
     return $output;
 }
 
-function bcf_bitcoinbank_test_cheque()
+function TestCheque()
 {
     if (is_user_logged_in())
     {
-        $cheque_handler = new BCF_BitcoinBankChequeHandlerClass();
+        $cheque_handler = new ChequeHandlerClass();
 
-        $account_id       = new BCF_BitcoinBank_AccountIdTypeClass(3);
-        $account_password = new BCF_BitcoinBank_PasswordTypeClass("abc123");
-        $amount           = new BCF_BitcoinBank_ValueTypeClass(7);
+        $account_id       = new AccountIdTypeClass(3);
+        $account_password = new PasswordTypeClass("abc123");
+        $amount           = new ValueTypeClass(7);
 
         $output      = "Issue cheque...";
-        $reference   = new BCF_BitcoinBank_TextTypeClass('12fd4d');
+        $reference   = new TextTypeClass('12fd4d');
         $expire_seconds = 60;
         $escrow_seconds = 3600;
         
@@ -437,7 +431,7 @@ function bcf_bitcoinbank_test_cheque()
     return $output;
 }
 
-function bcf_bitcoinbank_activate_plugin()
+function ActivatePlugin()
 {
     /* To let it be recreated */
     delete_option( BCF_BITCOINBANK_ADMIN_USER_ID );
@@ -445,11 +439,11 @@ function bcf_bitcoinbank_activate_plugin()
 
     DB_CreateOrUpdateDatabaseTables();
     
-    $user_handler = new BCF_BitcoinBankUserHandlerClass();
+    $user_handler = new UserHandlerClass();
     $user_handler->CreateAdminBankUser();
 }
 
-function bcf_bitcoinbank_deactivate_plugin()
+function DeactivatePlugin()
 {
 }
 
@@ -457,19 +451,18 @@ function bcf_bitcoinbank_deactivate_plugin()
 /* Add AJAX handlers */
 // Note! Need to have both actions below, "nopriv" and other! Otherwise wordpress will not return json object.
 
-// Can be tested i browser: /wp-admin/admin-ajax.php?action=bcf_bitcoinbank_process_ajax_request_cheque&account=11&amount=123&passwd=abc123&ref=6454
-add_action( 'wp_ajax_nopriv_bcf_bitcoinbank_process_ajax_request_cheque',   'bcf_bitcoinbank_process_ajax_request_cheque');
-add_action( 'wp_ajax_bcf_bitcoinbank_process_ajax_request_cheque',          'bcf_bitcoinbank_process_ajax_request_cheque');
+// Can be tested i browser: /wp-admin/admin-ajax.php?action=bcf_bitcoinbank_process_ajax_request_cheque&account=3&amount=762&passwd=abc123&ref=47
+add_action('wp_ajax_nopriv_bcf_bitcoinbank_process_ajax_request_cheque', 'BCF_BitcoinBank\ProcessAjaxRequestCheque');
+add_action('wp_ajax_bcf_bitcoinbank_process_ajax_request_cheque', 'BCF_BitcoinBank\ProcessAjaxRequestCheque');
 
-// Can be tested i browser: /wp-admin/admin-ajax.php?action=bcf_bitcoinbank_process_ajax_validate_cheque&serialno=1&amount=123
-add_action( 'wp_ajax_nopriv_bcf_bitcoinbank_process_ajax_validate_cheque',  'bcf_bitcoinbank_process_ajax_validate_cheque');
-add_action( 'wp_ajax_bcf_bitcoinbank_process_ajax_validate_cheque',         'bcf_bitcoinbank_process_ajax_validate_cheque');
+add_action('wp_ajax_nopriv_bcf_bitcoinbank_process_ajax_validate_cheque', 'BCF_BitcoinBank\ProcessAjaxValidateCheque');
+add_action('wp_ajax_bcf_bitcoinbank_process_ajax_validate_cheque', 'BCF_BitcoinBank\ProcessAjaxValidateCheque');
 
 /* Add shortcodes */
-add_shortcode('bcf_bitcoinbank_list_user_transactions', 'bcf_bitcoinbank_list_user_transactions');
-add_shortcode('bcf_bitcoinbank_withdraw',               'bcf_bitcoinbank_withdraw');
-add_shortcode('bcf_bitcoinbank_list_user_cheques',      'bcf_bitcoinbank_list_user_cheques');
-add_shortcode('bcf_bitcoinbank_test_cheque',            'bcf_bitcoinbank_test_cheque');
+add_shortcode('bcf_bitcoinbank_list_user_transactions', 'BCF_BitcoinBank\ListUserTransactions');
+add_shortcode('bcf_bitcoinbank_withdraw', 'BCF_BitcoinBank\Withdraw');
+add_shortcode('bcf_bitcoinbank_list_user_cheques', 'BCF_BitcoinBank\ListUserCheques');
+add_shortcode('bcf_bitcoinbank_test_cheque', 'BCF_BitcoinBank\TestCheque');
 
-register_activation_hook(__FILE__, 'bcf_bitcoinbank_activate_plugin');
-register_deactivation_hook(__FILE__, 'bcf_bitcoinbank_deactivate_plugin');
+register_activation_hook(__FILE__, 'BCF_BitcoinBank\ActivatePlugin');
+register_deactivation_hook(__FILE__, 'BCF_BitcoinBank\DeactivatePlugin');

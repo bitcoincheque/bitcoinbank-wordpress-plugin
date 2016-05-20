@@ -21,10 +21,14 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+namespace BCF_BitcoinBank;
+
 require_once('data_collection_base_class.php');
 require_once('data_types.php');
 
-class BCF_Bank_TransactionDataClass extends BCF_DataBaseClass
+define ('TRANSACTION_DATA_CLASS_NAME', __NAMESPACE__ . '\TransactionDataClass');
+
+class TransactionDataClass extends DataBaseClass
 {
     /* Database table name: */
     const DB_TABLE_NAME = 'bcf_bank_transaction';
@@ -40,37 +44,37 @@ class BCF_Bank_TransactionDataClass extends BCF_DataBaseClass
     /* Metadata describing database field and data properties: */
     protected $MetaData = array(
         self::DB_FIELD_TRANSACTION_ID => array(
-            'class_type'    => 'BCF_BitcoinBank_TransactionIdTypeClass',
+            'class_type'    => 'TransactionIdTypeClass',
             'db_field_name' => self::DB_FIELD_TRANSACTION_ID,
             'db_primary_key'=> true,
             'default_value' => 0
         ),
         self::DB_FIELD_DATETIME => array(
-            'class_type'    => 'BCF_BitcoinBank_DateTimeTypeClass',
+            'class_type'    => 'DateTimeTypeClass',
             'db_field_name' => self::DB_FIELD_DATETIME,
             'db_primary_key'=> false,
             'default_value' => ''
         ),
         self::DB_FIELD_ACCOUNT_ID    => array(
-            'class_type'    => 'BCF_BitcoinBank_AccountIdTypeClass',
+            'class_type'    => 'AccountIdTypeClass',
             'db_field_name' => self::DB_FIELD_ACCOUNT_ID,
             'db_primary_key'=> false,
             'default_value' => 0
         ),
         self::DB_FIELD_TYPE => array(
-            'class_type'    => 'BCF_BitcoinBank_TransactionDirTypeClass',
+            'class_type'    => 'TransactionDirTypeClass',
             'db_field_name' => self::DB_FIELD_TYPE,
             'db_primary_key'=> false,
             'default_value' => 'NA'
         ),
         self::DB_FIELD_AMOUNT => array(
-            'class_type'    => 'BCF_BitcoinBank_ValueTypeClass',
+            'class_type'    => 'ValueTypeClass',
             'db_field_name' => self::DB_FIELD_AMOUNT,
             'db_primary_key'=> false,
             'default_value' => 0
         ),
         self::DB_FIELD_BALANCE => array(
-            'class_type'    => 'BCF_BitcoinBank_ValueTypeClass',
+            'class_type'    => 'ValueTypeClass',
             'db_field_name' => self::DB_FIELD_BALANCE,
             'db_primary_key'=> false,
             'default_value' => 0

@@ -21,19 +21,16 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+namespace BCF_BitcoinBank;
+
 require_once('user_data.php');
 require_once('account_data.php');
 require_once('transaction_data.php');
 require_once('cheque_data.php');
 require_once('data_types.php');
 
-class BCF_BitcoinBank_DatabaseInterfaceClass
+class DatabaseInterfaceClass
 {
-    const BCF_BITCOINBANK_DB_TABLE_TRANSACTIONS = 'bcf_bank_transaction';
-    const BCF_BITCOINBANK_DB_TABLE_USERS =        'bcf_bank_users';
-    const BCF_BITCOINBANK_DB_TABLE_ACCOUNTS =     'bcf_bank_accounts';
-    const BCF_BITCOINBANK_DB_TABLE_CHEQUES =      'bcf_bank_cheques';
-
     protected function __construct()
     {
     }
@@ -42,7 +39,7 @@ class BCF_BitcoinBank_DatabaseInterfaceClass
     {
         $now = current_time('timestamp', true);
         $now_str = date('Y-m-d H:i:s', $now);
-        $datetime = new BCF_BitcoinBank_DateTimeTypeClass($now_str);
+        $datetime = new DateTimeTypeClass($now_str);
         return $datetime;
     }
 
@@ -96,9 +93,9 @@ class BCF_BitcoinBank_DatabaseInterfaceClass
         {
             $field_value = $transaction_id->GetString();
 
-            $record_list = $this->DB_GetRecordListByFieldValue( self::BCF_BITCOINBANK_DB_TABLE_TRANSACTIONS, 'transaction_id', $field_value );
+            $record_list = $this->DB_GetRecordListByFieldValue(TransactionDataClass::DB_TABLE_NAME, TransactionDataClass::DB_FIELD_TRANSACTION_ID, $field_value);
 
-            $transaction_list = $this->DB_LoadRecordsIntoDataCollection($record_list, 'BCF_Bank_TransactionDataClass');
+            $transaction_list = $this->DB_LoadRecordsIntoDataCollection($record_list, TRANSACTION_DATA_CLASS_NAME);
 
             if(count( $transaction_list ) == 1)
             {
@@ -117,9 +114,9 @@ class BCF_BitcoinBank_DatabaseInterfaceClass
         {
             $field_value = $account_id->GetString();
 
-            $record_list = $this->DB_GetRecordListByFieldValue( self::BCF_BITCOINBANK_DB_TABLE_TRANSACTIONS, 'account_id', $field_value );
+            $record_list = $this->DB_GetRecordListByFieldValue(TransactionDataClass::DB_TABLE_NAME, TransactionDataClass::DB_FIELD_ACCOUNT_ID, $field_value);
 
-            $transaction_list = $this->DB_LoadRecordsIntoDataCollection($record_list, 'BCF_Bank_TransactionDataClass');
+            $transaction_list = $this->DB_LoadRecordsIntoDataCollection($record_list, TRANSACTION_DATA_CLASS_NAME);
         }
 
         return $transaction_list;
@@ -133,9 +130,9 @@ class BCF_BitcoinBank_DatabaseInterfaceClass
         {
             $field_value = $issuer_account_id->GetString();
 
-            $record_list = $this->DB_GetRecordListByFieldValue( self::BCF_BITCOINBANK_DB_TABLE_CHEQUES, 'issuer_account_id', $field_value );
+            $record_list = $this->DB_GetRecordListByFieldValue(ChequeDataClass::DB_TABLE_NAME, ChequeDataClass::DB_FIELD_USER_ACCOUNT_ID, $field_value);
 
-            $cheque_list = $this->DB_LoadRecordsIntoDataCollection($record_list, 'BCF_Bank_ChequeDataClass');
+            $cheque_list = $this->DB_LoadRecordsIntoDataCollection($record_list, CHEQUE_DATA_CLASS_NAME);
         }
         return $cheque_list;
     }
@@ -186,33 +183,6 @@ class BCF_BitcoinBank_DatabaseInterfaceClass
         return $result;
     }
 
-    /*
-    protected function DB_CreateBankUser($wp_user, $name)
-    {
-        $user_id = 0;
-
-        if(SanitizeWpUserId($wp_user) and SanitizeText($name))
-        {
-            global $wpdb;
-            $prefixed_table_name = $wpdb->prefix . self::BCF_BITCOINBANK_DB_TABLE_USERS;
-
-            $newdata = array(
-                'wp_user' => $wp_user->GetString(),
-                'name'    => $name->GetString(),
-            );
-
-            $wpdb->insert( $prefixed_table_name, $newdata );
-
-            if ( ! $wpdb->last_error )
-            {
-                $user_id = $wpdb->insert_id;
-            }
-        }
-
-        return $user_id;
-    }
-    */
-    
     protected function DB_GetBankUserData($bank_user_id)
     {
         $bank_user_data = null;
@@ -221,11 +191,11 @@ class BCF_BitcoinBank_DatabaseInterfaceClass
         {
             $field_value = $bank_user_id->GetString();
 
-            $record_list = $this->DB_GetRecordListByFieldValue( BCF_BitcoinBankUserDataClass::DB_TABLE_NAME, BCF_BitcoinBankUserDataClass::DB_FIELD_USER_ID, $field_value );
+            $record_list = $this->DB_GetRecordListByFieldValue(UserDataClass::DB_TABLE_NAME, UserDataClass::DB_FIELD_USER_ID, $field_value);
             if ( count( $record_list ) == 1 )
             {
                 $record         = $record_list[0];
-                $bank_user_data = new BCF_BitcoinBankUserDataClass;
+                $bank_user_data = new UserDataClass;
                 $bank_user_data->SetDataFromDbRecord( $record );
             }
         }
@@ -241,13 +211,13 @@ class BCF_BitcoinBank_DatabaseInterfaceClass
         {
             $field_value = $wp_user_id->GetString();
 
-            $record_list = $this->DB_GetRecordListByFieldValue( BCF_BitcoinBankUserDataClass::DB_TABLE_NAME, BCF_BitcoinBankUserDataClass::DB_FIELD_WP_USER_ID, $field_value );
+            $record_list = $this->DB_GetRecordListByFieldValue(UserDataClass::DB_TABLE_NAME, UserDataClass::DB_FIELD_WP_USER_ID, $field_value);
             if(!empty($record_list))
             {
                 if ( count( $record_list ) == 1 )
                 {
                     $record         = $record_list[0];
-                    $bank_user_data = new BCF_BitcoinBankUserDataClass;
+                    $bank_user_data = new UserDataClass;
                     $bank_user_data->SetDataFromDbRecord( $record );
                 }
             }
@@ -264,10 +234,10 @@ class BCF_BitcoinBank_DatabaseInterfaceClass
         {
             $field_value = $account_id->GetString();
 
-            $record_list = $this->DB_GetRecordListByFieldValue( BCF_BitcoinAccountDataClass::DB_TABLE_NAME, BCF_BitcoinAccountDataClass::DB_FIELD_ACCOUNT_ID, $field_value );
+            $record_list = $this->DB_GetRecordListByFieldValue(AccountDataClass::DB_TABLE_NAME, AccountDataClass::DB_FIELD_ACCOUNT_ID, $field_value);
             if ( count( $record_list ) == 1 )
             {
-                $account_data = new BCF_BitcoinAccountDataClass;
+                $account_data = new AccountDataClass;
                 $account_data->SetDataFromDbRecord( $record_list[0] );
             }
         }
@@ -284,9 +254,9 @@ class BCF_BitcoinBank_DatabaseInterfaceClass
         {
             $field_value = $bank_user_id->GetString();
 
-            $record_list = $this->DB_GetRecordListByFieldValue( BCF_BitcoinAccountDataClass::DB_TABLE_NAME, BCF_BitcoinAccountDataClass::DB_FIELD_USER_ID, $field_value );
+            $record_list = $this->DB_GetRecordListByFieldValue(AccountDataClass::DB_TABLE_NAME, AccountDataClass::DB_FIELD_USER_ID, $field_value);
 
-            $account_info_list = $this->DB_LoadRecordsIntoDataCollection($record_list, 'BCF_BitcoinAccountDataClass');
+            $account_info_list = $this->DB_LoadRecordsIntoDataCollection($record_list, ACCOUNT_DATA_CLASS_NAME);
         }
 
         return $account_info_list;
@@ -300,11 +270,11 @@ class BCF_BitcoinBank_DatabaseInterfaceClass
         {
             $field_value = $cheque_id->GetString();
 
-            $record_list = $this->DB_GetRecordListByFieldValue( BCF_Bank_ChequeDataClass::DB_TABLE_NAME, BCF_Bank_ChequeDataClass::DB_FIELD_CHEQUE_ID, $field_value );
+            $record_list = $this->DB_GetRecordListByFieldValue(ChequeDataClass::DB_TABLE_NAME, ChequeDataClass::DB_FIELD_CHEQUE_ID, $field_value);
             if ( count( $record_list ) == 1 )
             {
-                $cheque_data = new BCF_Bank_ChequeDataClass();
-                $cheque_data->SetDataFromDbRecord( $record_list[0] );
+                $cheque_data = new ChequeDataClass();
+                $cheque_data->SetDataFromDbRecord($record_list[0]);
             }
         }
 
@@ -319,97 +289,13 @@ class BCF_BitcoinBank_DatabaseInterfaceClass
         {
             $field_value = $cheque_state->GetString();
 
-            $record_list = $this->DB_GetRecordListByFieldValue( BCF_Bank_ChequeDataClass::DB_TABLE_NAME, BCF_Bank_ChequeDataClass::DB_FIELD_STATE, $field_value );
+            $record_list = $this->DB_GetRecordListByFieldValue(ChequeDataClass::DB_TABLE_NAME, ChequeDataClass::DB_FIELD_STATE, $field_value);
 
-            $cheque_data_list = $this->DB_LoadRecordsIntoDataCollection($record_list, 'BCF_Bank_ChequeDataClass');
+            $cheque_data_list = $this->DB_LoadRecordsIntoDataCollection($record_list, CHEQUE_DATA_CLASS_NAME);
         }
 
         return $cheque_data_list;
     }
-
-    /*
-    protected function DB_CreateBankAccount($user_id, $password)
-    {
-        $account_id = 0;
-
-        if(SanitizeBankUserId($user_id) and SanitizePassword($password))
-        {
-            global $wpdb;
-            $prefixed_table_name = $wpdb->prefix . BCF_BITCOINBANK_DB_TABLE_ACCOUNTS;
-
-            $newdata = array(
-                'user_id'  => $user_id->GetString(),
-                'password' => $password->GetString(),
-            );
-
-            $wpdb->insert( $prefixed_table_name, $newdata );
-
-            if ( ! $wpdb->last_error )
-            {
-                $account_id = $wpdb->insert_id;
-
-                $timestamp = $this->DB_GetCurrentTimeStamp();
-                $type      = 'INITIAL';
-                $amount    = 0;
-                $balance   = 0;
-
-                $transaction_id = $this->DB_WriteTransaction( $account_id, $timestamp, $type, $amount, $balance );
-                if ( $transaction_id == 0 )
-                {
-                    //debug_print('ERROR: Transaction write error.');
-
-                    $account_id = 0;
-                }
-            }
-        }
-
-        return $account_id;
-    }
-    */
-    /*
-    protected function DB_WriteTransaction($account_id, $datetime, $transaction_type, $amount, $balance)
-    {
-        $transaction_id = null;
-
-        if(SanitizeAccountId($account_id)
-            and SanitizeDateTime($datetime)
-            and SanitizeTransactionType($transaction_type)
-            and SanitizeAmount($amount)
-            and SanitizeAmount($balance))
-        {
-            global $wpdb;
-            $prefixed_table_name = $wpdb->prefix . self::BCF_BITCOINBANK_DB_TABLE_TRANSACTIONS;
-
-            $account_id_str = $account_id->GetString();
-            $datetime_str   = $datetime->GetString();
-            $type_str       = $transaction_type->GetString();
-            $amount_str     = $amount->GetString();
-            $balance_str    = $balance->GetString();
-
-            $newdata = array(
-                'account_id' => strval( $account_id_str ),
-                'datetime'   => strval( $datetime_str ),
-                'type'       => strval( $type_str ),
-                'amount'     => strval( $amount_str ),
-                'balance'    => strval( $balance_str ),
-            );
-
-            $wpdb->insert( $prefixed_table_name, $newdata );
-            if ( ! $wpdb->last_error )
-            {
-                $transaction_id_val = $wpdb->insert_id;
-                $transaction_id = new BCF_BitcoinBank_TransactionIdTypeClass($transaction_id_val);
-
-                if ( $transaction_id_val == 0 )
-                {
-                    debug_print( 'ERROR: Transaction id 0 created.' );
-                    die();
-                }
-            }
-        }
-        return $transaction_id;
-    }
-    */
 
     protected function DB_GetBalance($account_id)
     {
@@ -419,7 +305,7 @@ class BCF_BitcoinBank_DatabaseInterfaceClass
         {
             global $wpdb;
 
-            $prefixed_table_name = $wpdb->prefix . self::BCF_BITCOINBANK_DB_TABLE_TRANSACTIONS;
+            $prefixed_table_name = $wpdb->prefix . TransactionDataClass::DB_TABLE_NAME;
             $account_id_str      = $account_id->GetString();
 
             $sql = "SELECT MAX(transaction_id) FROM " . $prefixed_table_name . " WHERE account_id=" . $account_id_str;
@@ -430,8 +316,8 @@ class BCF_BitcoinBank_DatabaseInterfaceClass
                 $records = $wpdb->last_result;
                 $row     = (array) $records[0];
 
-                $last_transaction_id_int = $row['MAX(transaction_id)'];
-                $last_transaction_id = new BCF_BitcoinBank_TransactionIdTypeClass(intval($last_transaction_id_int));
+                $last_transaction_id_int = $row['MAX(' . TransactionDataClass::DB_FIELD_TRANSACTION_ID . ')'];
+                $last_transaction_id = new TransactionIdTypeClass(intval($last_transaction_id_int));
 
                 if ($last_transaction_id->HasValidData())
                 {
@@ -447,72 +333,6 @@ class BCF_BitcoinBank_DatabaseInterfaceClass
 
         return $balance;
     }
-
-    /*
-    protected function DB_WriteChequeRecord($issuer_account_id, $issue_datetime, $expire_datetime, $escrow_datetime, $amount, $secret_token, $reference)
-    {
-        $cheque_id = 0;
-
-        global $wpdb;
-        $prefixed_table_name = $wpdb->prefix . BCF_BITCOINBANK_DB_TABLE_CHEQUES;
-
-        $amount_str  =strval($amount);
-        $issue_datetime_str = $this->DB_FormatedTimeStampStr($issue_datetime);
-        $expire_datetime_str = $this->DB_FormatedTimeStampStr($expire_datetime);
-        $escrow_datetime_str = $this->DB_FormatedTimeStampStr($escrow_datetime);
-        $issuer_account_id_str = strval($issuer_account_id);
-
-        $newdata = array(
-            'issue_datetime'    => strval($issue_datetime_str),
-            'expire_datetime'   => strval($expire_datetime_str),
-            'escrow_datetime'   => strval($escrow_datetime_str),
-            'state'             => 'UNCLAIMED',
-            'amount'            => $amount_str,
-            'issuer_account_id' => $issuer_account_id_str,
-            'secret_token'      => $secret_token,
-            'receiver_reference'=> $reference,
-        );
-
-        $wpdb->insert($prefixed_table_name, $newdata);
-        if (!$wpdb->last_error)
-        {
-            $cheque_id = $wpdb->insert_id;
-
-            if ($cheque_id == 0)
-            {
-                debug_print('ERROR: Cheque id 0 created.');
-                die();
-            }
-        }
-        return $cheque_id;
-    }
-    */
-    /*
-    protected function DB_UpdateChequeRecord($cheque_id, $new_state)
-    {
-        $result = false;
-
-        global $wpdb;
-        $prefixed_table_name = $wpdb->prefix . BCF_BITCOINBANK_DB_TABLE_CHEQUES;
-        $cheque_id_str  =strval($cheque_id);
-
-        $newdata = array(
-            'state' => $new_state
-        );
-
-        $where = array(
-            'cheque_id' => $cheque_id_str
-        );
-
-        $wpdb->update($prefixed_table_name, $newdata, $where);
-
-        if (!$wpdb->last_error)
-        {
-            $result = true;
-        }
-        return $result;
-    }
-    */
 }
 
 function DB_CreateOrUpdateDatabaseTable($class)
@@ -527,10 +347,9 @@ function DB_CreateOrUpdateDatabaseTable($class)
 
 function DB_CreateOrUpdateDatabaseTables()
 {
-
-    DB_CreateOrUpdateDatabaseTable('BCF_BitcoinBankUserDataClass');
-    DB_CreateOrUpdateDatabaseTable('BCF_BitcoinAccountDataClass');
-    DB_CreateOrUpdateDatabaseTable('BCF_Bank_TransactionDataClass');
-    DB_CreateOrUpdateDatabaseTable('BCF_Bank_ChequeDataClass');
+    DB_CreateOrUpdateDatabaseTable('\\' . USER_DATA_CLASS_NAME);
+    DB_CreateOrUpdateDatabaseTable('\\' . ACCOUNT_DATA_CLASS_NAME);
+    DB_CreateOrUpdateDatabaseTable('\\' . TRANSACTION_DATA_CLASS_NAME);
+    DB_CreateOrUpdateDatabaseTable('\\' . CHEQUE_DATA_CLASS_NAME);
 }
 

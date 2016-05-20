@@ -21,6 +21,8 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+namespace BCF_BitcoinBank;
+
 require_once('db_interface.php');
 require_once ('util.php');
 require_once('data_types.php');
@@ -35,7 +37,7 @@ define ('BCF_BITCOINBANK_CHEQUE_ESCROW_ACCOUNT_ID', 'bcf_bitcoinbank_cheque_escr
 
 
 
-class BCF_BitcoinBankAccountingClass extends BCF_BitcoinBank_DatabaseInterfaceClass
+class AccountingClass extends DatabaseInterfaceClass
 {
     protected function __construct()
     {
@@ -63,7 +65,7 @@ class BCF_BitcoinBankAccountingClass extends BCF_BitcoinBank_DatabaseInterfaceCl
         {
             $admin_bank_user_id_str = get_option( BCF_BITCOINBANK_ADMIN_USER_ID );
             $admin_bank_user_id_val = intval($admin_bank_user_id_str);
-            $admin_bank_user_id = new BCF_BitcoinBank_UserIdTypeClass($admin_bank_user_id_val);
+            $admin_bank_user_id = new UserIdTypeClass($admin_bank_user_id_val);
 
             $account = $this->CheckAndCreateChequeEscrowAccount($admin_bank_user_id);
             if(!is_null($account))
@@ -89,10 +91,10 @@ class BCF_BitcoinBankAccountingClass extends BCF_BitcoinBank_DatabaseInterfaceCl
 
     protected function CreateBankUser($wp_user_id, $name)
     {
-        $bank_user = 0;
+        $bank_user = null;
         if(SanitizeWpUserId($wp_user_id) and SanitizeText($name))
         {
-            $bank_user = new BCF_BitcoinBankUserDataClass();
+            $bank_user = new UserDataClass();
             $bank_user->SetWpUserId($wp_user_id);
             $bank_user->SetName($name);
 
@@ -100,7 +102,7 @@ class BCF_BitcoinBankAccountingClass extends BCF_BitcoinBank_DatabaseInterfaceCl
 
             if($bank_user_id_value > 0)
             {
-                $bank_user_id = new BCF_BitcoinBank_UserIdTypeClass($bank_user_id_value);
+                $bank_user_id = new UserIdTypeClass($bank_user_id_value);
                 if(!$bank_user->SetBankUserId($bank_user_id))
                 {
                     $bank_user = NULL;
@@ -119,7 +121,7 @@ class BCF_BitcoinBankAccountingClass extends BCF_BitcoinBank_DatabaseInterfaceCl
         if(SanitizeBankUserId($bank_user_id)
             and SanitizePassword($password))
         {
-            $account = new BCF_BitcoinAccountDataClass;
+            $account = new AccountDataClass;
             $account->SetAccountOwner($bank_user_id);
             $account->SetPassword($password);
 
@@ -127,13 +129,13 @@ class BCF_BitcoinBankAccountingClass extends BCF_BitcoinBank_DatabaseInterfaceCl
 
             if($account_id_value > 0)
             {
-                $account_id = new BCF_BitcoinBank_AccountIdTypeClass($account_id_value);
+                $account_id = new AccountIdTypeClass($account_id_value);
                 if($account->SetAccountId($account_id))
                 {
-                    $transaction = new BCF_Bank_TransactionDataClass();
+                    $transaction = new TransactionDataClass();
                     $transaction->SetAccountId($account_id);
                     $transaction->SetDateTime($this->DB_GetCurrentTimeStamp());
-                    $transaction_type = new BCF_BitcoinBank_TransactionDirTypeClass("INITIAL");
+                    $transaction_type = new TransactionDirTypeClass("INITIAL");
                     $transaction->SetTransactionType($transaction_type);
 
                     $transaction_id_value = $this->DB_WriteRecord($transaction);
@@ -257,10 +259,10 @@ class BCF_BitcoinBankAccountingClass extends BCF_BitcoinBank_DatabaseInterfaceCl
                             $balance_value = $balance_value - $amount_value;
                             $amount_value = 0 - $amount_value;
 
-                            $new_balance = new BCF_BitcoinBank_ValueTypeClass($balance_value);
-                            $new_amount = new BCF_BitcoinBank_ValueTypeClass($amount_value);
+                            $new_balance = new ValueTypeClass($balance_value);
+                            $new_amount = new ValueTypeClass($amount_value);
 
-                            $transaction = new BCF_Bank_TransactionDataClass();
+                            $transaction = new TransactionDataClass();
                             $transaction->SetAccountId($account_id);
                             $transaction->SetDateTime($datetime);
                             $transaction->SetTransactionType($transaction_type);
@@ -269,7 +271,7 @@ class BCF_BitcoinBankAccountingClass extends BCF_BitcoinBank_DatabaseInterfaceCl
 
                             $transaction_id_val = $this->DB_WriteRecord($transaction);
 
-                            $transaction_id = new BCF_BitcoinBank_TransactionIdTypeClass($transaction_id_val);
+                            $transaction_id = new TransactionIdTypeClass($transaction_id_val);
                         //}
                     }
                 }
@@ -302,10 +304,10 @@ class BCF_BitcoinBankAccountingClass extends BCF_BitcoinBank_DatabaseInterfaceCl
 
                         $balance_value = $balance_value + $amount_value;
 
-                        $new_balance = new BCF_BitcoinBank_ValueTypeClass($balance_value);
-                        $new_amount = new BCF_BitcoinBank_ValueTypeClass($amount_value);
+                        $new_balance = new ValueTypeClass($balance_value);
+                        $new_amount = new ValueTypeClass($amount_value);
 
-                        $transaction = new BCF_Bank_TransactionDataClass();
+                        $transaction = new TransactionDataClass();
                         $transaction->SetAccountId($account_id);
                         $transaction->SetDateTime($datetime);
                         $transaction->SetTransactionType($transaction_type);
@@ -314,7 +316,7 @@ class BCF_BitcoinBankAccountingClass extends BCF_BitcoinBank_DatabaseInterfaceCl
 
                         $transaction_id_val = $this->DB_WriteRecord($transaction);
 
-                        $transaction_id = new BCF_BitcoinBank_TransactionIdTypeClass($transaction_id_val);
+                        $transaction_id = new TransactionIdTypeClass($transaction_id_val);
                     }
                 }
             }
@@ -347,13 +349,13 @@ class BCF_BitcoinBankAccountingClass extends BCF_BitcoinBank_DatabaseInterfaceCl
     private  function CheckAndCreateAdminBankUser()
     {
         /* The Bank admin has Wordpress user id 0 */
-        $wp_user = new BCF_BitcoinBank_WpUserIdTypeClass(0);
+        $wp_user = new WpUserIdTypeClass(0);
         $admin_bank_user = $this->GetBankUserDataFromWpUser($wp_user);
 
         if (is_null($admin_bank_user))
         {
             /* No bank user for Wordpress user 0, create one */
-            $name = new BCF_BitcoinBank_TextTypeClass('Admin');
+            $name = new TextTypeClass('Admin');
             $admin_bank_user = $this->CreateBankUser($wp_user, $name);
             if (is_null($admin_bank_user))
             {
@@ -366,7 +368,7 @@ class BCF_BitcoinBankAccountingClass extends BCF_BitcoinBank_DatabaseInterfaceCl
 
     private  function CheckAndCreateChequeEscrowAccount($bank_user_id)
     {
-        $cheque_account_id = 0;
+        $cheque_account_id = null;
 
         if(SanitizeBankUserId($bank_user_id))
         {
@@ -381,7 +383,7 @@ class BCF_BitcoinBankAccountingClass extends BCF_BitcoinBank_DatabaseInterfaceCl
             else
             {
                 // Admin user has noe accoutns, create one
-                $password = new BCF_BitcoinBank_PasswordTypeClass('');
+                $password = new PasswordTypeClass('');
                 $cheque_account_id = $this->CreateBankAccount($bank_user_id, $password);
                 if (empty($cheque_account_id))
                 {
@@ -401,7 +403,7 @@ class BCF_BitcoinBankAccountingClass extends BCF_BitcoinBank_DatabaseInterfaceCl
         $cheque_account_id_str = get_option(BCF_BITCOINBANK_CHEQUE_ESCROW_ACCOUNT_ID);
         if($cheque_account_id_str != "")
         {
-            $cheque_account_id = new BCF_BitcoinBank_AccountIdTypeClass(intval($cheque_account_id_str));
+            $cheque_account_id = new AccountIdTypeClass(intval($cheque_account_id_str));
         }
 
         return $cheque_account_id;
@@ -426,11 +428,11 @@ class BCF_BitcoinBankAccountingClass extends BCF_BitcoinBank_DatabaseInterfaceCl
                 $r = $r1 / $r2;
                 $str = strval($r);
                 $secret_token_str = str_replace('.', '', $str);
-                $secret_token = new BCF_BitcoinBank_TextTypeClass($secret_token_str);
+                $secret_token = new TextTypeClass($secret_token_str);
 
-                $state = new BCF_BitcoinBank_ChequeStateTypeClass('UNCLAIMED');
+                $state = new ChequeStateTypeClass('UNCLAIMED');
                 
-                $cheque = new BCF_Bank_ChequeDataClass();
+                $cheque = new ChequeDataClass();
                 $cheque->SetChequeState($state);
                 $cheque->SetIssueDateTime($issue_datetime);
                 $cheque->SetExpireDateTime($expire_datetime);
@@ -441,7 +443,7 @@ class BCF_BitcoinBankAccountingClass extends BCF_BitcoinBank_DatabaseInterfaceCl
                 $cheque->SetOwnerAccountId($issuer_account_id);
 
                 $collect_url_str = site_url() . '/wp-admin/admin-ajax.php?action=bcf_bitcoinbank_process_ajax_validate_cheque';
-                $collect_url = new BCF_BitcoinBank_TextTypeClass($collect_url_str);
+                $collect_url = new TextTypeClass($collect_url_str);
                 $cheque->SetCollectUrl($collect_url);
 
                 $cheque_id_value = $this->DB_WriteRecord($cheque);
@@ -449,7 +451,7 @@ class BCF_BitcoinBankAccountingClass extends BCF_BitcoinBank_DatabaseInterfaceCl
                 if($cheque_id_value > 0)
                 {
                     /* Cheque created, add cheque_id */
-                    $cheque_id = new BCF_BitcoinBank_ChequeIdTypeClass($cheque_id_value);
+                    $cheque_id = new ChequeIdTypeClass($cheque_id_value);
                     $cheque->SetChequeId($cheque_id);
                 }
                 else
@@ -489,7 +491,7 @@ class BCF_BitcoinBankAccountingClass extends BCF_BitcoinBank_DatabaseInterfaceCl
             $cheque_record = $this->GetChequeRecord($cheque_id);
             if(!empty($cheque_record))
             {
-                $cheque = new BCF_BitCoinChequeClass();
+                $cheque = new BitCoinChequeClass();
                 if ($cheque->SetDataFromArray($cheque_record))
                 {
                     return $cheque;
@@ -514,7 +516,7 @@ class BCF_BitcoinBankAccountingClass extends BCF_BitcoinBank_DatabaseInterfaceCl
         $current_time = $this->DB_GetCurrentTimeStamp();
         $cheque_account_id = $this->GetChequeEscrollAccount();
 
-        $cheque_state = new BCF_BitcoinBank_ChequeStateTypeClass('UNCLAIMED');
+        $cheque_state = new ChequeStateTypeClass('UNCLAIMED');
 
         $cheque_list = $this->DB_GetChequeDataListByState($cheque_state);
 
@@ -525,8 +527,8 @@ class BCF_BitcoinBankAccountingClass extends BCF_BitcoinBank_DatabaseInterfaceCl
                 $issuer_account_id = $cheque->GetOwnerAccountId();
                 $amount = $cheque->GetValue();
 
-                $transaction_type_withdraw = new BCF_BitcoinBank_TransactionDirTypeClass('WITHDRAW');
-                $transaction_type_add = new BCF_BitcoinBank_TransactionDirTypeClass('REIMBURSEMENT');
+                $transaction_type_withdraw = new TransactionDirTypeClass('WITHDRAW');
+                $transaction_type_add = new TransactionDirTypeClass('REIMBURSEMENT');
 
                 // TODO This must be atomic operation
                 $transaction_id = $this->MakeTransaction($cheque_account_id, $issuer_account_id, $current_time, $amount, $transaction_type_withdraw, $transaction_type_add);
@@ -534,6 +536,10 @@ class BCF_BitcoinBankAccountingClass extends BCF_BitcoinBank_DatabaseInterfaceCl
                 if(!is_null($transaction_id))
                 {
                     $result = $this->ChangeChequeState($cheque, CHEQUE_EVENT_EXPIRED);
+                    if ($result == false)
+                    {
+                        die();
+                    }
                 }
                 // TODO End of atomic operation
             }
@@ -639,7 +645,7 @@ class BCF_BitcoinBankAccountingClass extends BCF_BitcoinBank_DatabaseInterfaceCl
                 error_log('ChequeStateMachine Error: invalid state/event' . $old_state_str . '/' . $event);
             }
 
-            $cheque_new_state = new BCF_BitcoinBank_ChequeStateTypeClass($new_state);
+            $cheque_new_state = new ChequeStateTypeClass($new_state);
         }
 
         return $cheque_new_state;

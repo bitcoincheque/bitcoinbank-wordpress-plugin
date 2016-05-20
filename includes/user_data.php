@@ -21,10 +21,14 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+namespace BCF_BitcoinBank;
+
 require_once('data_collection_base_class.php');
 require_once('data_types.php');
 
-class BCF_BitcoinBankUserDataClass extends BCF_DataBaseClass
+define ('USER_DATA_CLASS_NAME', __NAMESPACE__ . '\UserDataClass');
+
+class UserDataClass extends DataBaseClass
 {
     /* Database table name: */
     const DB_TABLE_NAME = 'bcf_bank_users';
@@ -33,24 +37,24 @@ class BCF_BitcoinBankUserDataClass extends BCF_DataBaseClass
     const DB_FIELD_USER_ID = 'user_id';
     const DB_FIELD_WP_USER_ID = 'wp_user';
     const DB_FIELD_NAME = 'name';
-    
+
     /* Metadata describing database fields and data properties: */
     protected $MetaData = array
     (
         self::DB_FIELD_USER_ID => array(
-            'class_type'    => 'BCF_BitcoinBank_UserIdTypeClass',
+            'class_type'    => 'UserIdTypeClass',
             'db_field_name' => self::DB_FIELD_USER_ID,
             'db_primary_key'=> true,
             'default_value' => 0
         ),
         self::DB_FIELD_WP_USER_ID => array(
-            'class_type'    => 'BCF_BitcoinBank_WpUserIdTypeClass',
+            'class_type'    => 'WpUserIdTypeClass',
             'db_field_name' => self::DB_FIELD_WP_USER_ID,
             'db_primary_key'=> false,
             'default_value' => 0
         ),
         self::DB_FIELD_NAME => array(
-            'class_type'    => 'BCF_BitcoinBank_TextTypeClass',
+            'class_type'    => 'TextTypeClass',
             'db_field_name' => self::DB_FIELD_NAME,
             'db_primary_key'=> false,
             'default_value' => ''
@@ -118,7 +122,7 @@ function SanitizeBankUserData($bank_user)
 {
     if(gettype($bank_user) == 'object')
     {
-        if(get_class($bank_user) == 'BCF_BitcoinBankUserDataClass' )
+        if(get_class($bank_user) == 'UserDataClass' )
         {
             return $bank_user->SanitizeData();
         }

@@ -21,7 +21,10 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-class BCF_DataBaseClass
+namespace BCF_BitcoinBank;
+
+
+class DataBaseClass
 {
     public $DataObjects = array();
 
@@ -32,13 +35,15 @@ class BCF_DataBaseClass
             $default_value = $attributes['default_value'];
             $db_field_name = $attributes['db_field_name'];
             $primary_key   = $attributes['db_primary_key'];
-
-            if( ! class_exists($attributes['class_type']))
+            
+            $class_name = '\\' . __NAMESPACE__ . '\\'. $attributes['class_type'];
+            
+            if(!class_exists($class_name))
             {
                 die();
             }
 
-            $new_object                = new $attributes['class_type']($default_value, $primary_key);
+            $new_object                = new $class_name($default_value, $primary_key);
             $this->DataObjects[ $key ] = $new_object;
         }
     }
@@ -53,7 +58,9 @@ class BCF_DataBaseClass
             {
                 return false;
             }
-            if(get_class($data_object) != $attributes['class_type'])
+            
+            $class_name = __NAMESPACE__ . '\\' . $attributes['class_type'];
+            if(get_class($data_object) != $class_name)
             {
                 return false;
             }
@@ -204,7 +211,7 @@ class BCF_DataBaseClass
         $sql_columns = "";
         foreach($this->MetaData as $key => $attributes)
         {
-            $class = $attributes['class_type'];
+            $class = '\\' . __NAMESPACE__ . '\\' . $attributes['class_type'];
             $container = new $class(null);
             $type = $container->GetDataType();
             $mysql_type = $container->GetDataMySqlType();

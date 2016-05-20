@@ -21,7 +21,9 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-class BCF_BitcoinBank_BaseTypeClass
+namespace BCF_BitcoinBank;
+
+class BaseTypeClass
 {
     private $Data;
     private $DataMin;
@@ -154,7 +156,7 @@ class BCF_BitcoinBank_BaseTypeClass
 /***********************************************************************************************************************
  * Bank User Id Type (This is an unique additional id for each bank user besides the wordpress id.)
  **********************************************************************************************************************/
-class BCF_BitcoinBank_UserIdTypeClass extends BCF_BitcoinBank_BaseTypeClass
+class UserIdTypeClass extends BaseTypeClass
 {
     protected $MetaData = array(
         'data_type' => 'integer',
@@ -189,7 +191,7 @@ function SanitizeBankUserId($bank_user_id)
 {
     if(gettype($bank_user_id) == 'object')
     {
-        if(get_class($bank_user_id) == 'BCF_BitcoinBank_UserIdTypeClass' )
+        if(get_class($bank_user_id) == __NAMESPACE__ . '\UserIdTypeClass' )
         {
             return $bank_user_id->Sanitize();
         }
@@ -200,7 +202,7 @@ function SanitizeBankUserId($bank_user_id)
 /***********************************************************************************************************************
  * Cheque Id Type
  **********************************************************************************************************************/
-class BCF_BitcoinBank_ChequeIdTypeClass extends BCF_BitcoinBank_BaseTypeClass
+class ChequeIdTypeClass extends BaseTypeClass
 {
     protected $MetaData = array(
         'data_type' => 'integer',
@@ -235,7 +237,7 @@ function SanitizeChequeId($bank_user_id)
 {
     if(gettype($bank_user_id) == 'object')
     {
-        if(get_class($bank_user_id) == 'BCF_BitcoinBank_ChequeIdTypeClass' )
+        if(get_class($bank_user_id) == __NAMESPACE__ . '\ChequeIdTypeClass' )
         {
             return $bank_user_id->Sanitize();
         }
@@ -246,7 +248,7 @@ function SanitizeChequeId($bank_user_id)
 /***********************************************************************************************************************
  * Wordpress User Id Type
  **********************************************************************************************************************/
-class BCF_BitcoinBank_WpUserIdTypeClass extends BCF_BitcoinBank_BaseTypeClass
+class WpUserIdTypeClass extends BaseTypeClass
 {
     protected $MetaData = array(
         'data_type' => 'integer',
@@ -280,7 +282,7 @@ function SanitizeWpUserId($wp_user_id)
 {
     if(gettype($wp_user_id) == 'object')
     {
-        if(get_class($wp_user_id) == 'BCF_BitcoinBank_WpUserIdTypeClass' )
+        if(get_class($wp_user_id) == __NAMESPACE__ . '\WpUserIdTypeClass' )
         {
             return $wp_user_id->Sanitize();
         }
@@ -291,7 +293,7 @@ function SanitizeWpUserId($wp_user_id)
 /***********************************************************************************************************************
  * Text (string) Type
  **********************************************************************************************************************/
-class BCF_BitcoinBank_TextTypeClass extends BCF_BitcoinBank_BaseTypeClass
+class TextTypeClass extends BaseTypeClass
 {
     protected $MetaData = array(
         'data_type' => 'string',
@@ -319,7 +321,7 @@ function SanitizeText($bank_user_id)
 {
     if(gettype($bank_user_id) == 'object')
     {
-        if(get_class($bank_user_id) == 'BCF_BitcoinBank_TextTypeClass' )
+        if(get_class($bank_user_id) == __NAMESPACE__ . '\TextTypeClass' )
         {
             return $bank_user_id->Sanitize();
         }
@@ -330,7 +332,7 @@ function SanitizeText($bank_user_id)
 /***********************************************************************************************************************
  * Name Type
  **********************************************************************************************************************/
-class BCF_BitcoinBank_NameTypeClass extends BCF_BitcoinBank_BaseTypeClass
+class NameTypeClass extends BaseTypeClass
 {
     protected $MetaData = array(
         'data_type' => 'string',
@@ -359,7 +361,7 @@ function SanitizeName($name)
 {
     if(gettype($name) == 'object')
     {
-        if(get_class($name) == 'BCF_BitcoinBank_NameTypeClass' )
+        if(get_class($name) == __NAMESPACE__ . '\NameTypeClass' )
         {
             return $name->Sanitize();
         }
@@ -370,7 +372,7 @@ function SanitizeName($name)
 /***********************************************************************************************************************
  * Password Type
  **********************************************************************************************************************/
-class BCF_BitcoinBank_PasswordTypeClass extends BCF_BitcoinBank_BaseTypeClass
+class PasswordTypeClass extends BaseTypeClass
 {
     protected $MetaData = array(
         'data_type' => 'string',
@@ -397,7 +399,7 @@ function SanitizePassword($password)
 {
     if(gettype($password) == 'object')
     {
-        if(get_class($password) == 'BCF_BitcoinBank_PasswordTypeClass' )
+        if(get_class($password) == __NAMESPACE__ . '\PasswordTypeClass' )
         {
             return $password->Sanitize();
         }
@@ -408,7 +410,7 @@ function SanitizePassword($password)
 /***********************************************************************************************************************
  * Account Id Type
  **********************************************************************************************************************/
-class BCF_BitcoinBank_AccountIdTypeClass extends BCF_BitcoinBank_BaseTypeClass
+class AccountIdTypeClass extends BaseTypeClass
 {
     protected $MetaData = array(
         'data_type' => 'integer',
@@ -459,7 +461,7 @@ function SanitizeAccountId($account_id)
 {
     if(gettype($account_id) == 'object')
     {
-        if(get_class($account_id) == 'BCF_BitcoinBank_AccountIdTypeClass' )
+        if(get_class($account_id) == __NAMESPACE__ . '\AccountIdTypeClass' )
         {
             return $account_id->Sanitize();
         }
@@ -470,7 +472,7 @@ function SanitizeAccountId($account_id)
 /***********************************************************************************************************************
  * Amount Value Type
  **********************************************************************************************************************/
-class BCF_BitcoinBank_ValueTypeClass extends BCF_BitcoinBank_BaseTypeClass
+class ValueTypeClass extends BaseTypeClass
 {
     protected $MetaData = array(
         'data_type' => 'integer',
@@ -510,7 +512,7 @@ function SanitizeAmount($amount)
 {
     if(gettype($amount) == 'object')
     {
-        if(get_class($amount) == 'BCF_BitcoinBank_ValueTypeClass' )
+        if(get_class($amount) == __NAMESPACE__ . '\ValueTypeClass' )
         {
             return $amount->Sanitize();
         }
@@ -521,7 +523,7 @@ function SanitizeAmount($amount)
 /***********************************************************************************************************************
  * Transaction Id Type
  **********************************************************************************************************************/
-class BCF_BitcoinBank_TransactionIdTypeClass extends BCF_BitcoinBank_BaseTypeClass
+class TransactionIdTypeClass extends BaseTypeClass
 {
     protected $MetaData = array(
         'data_type' => 'integer',
@@ -554,7 +556,7 @@ function SanitizeTransactionId($transaction_id)
 {
     if(gettype($transaction_id) == 'object')
     {
-        if(get_class($transaction_id) == 'BCF_BitcoinBank_TransactionIdTypeClass' )
+        if(get_class($transaction_id) == __NAMESPACE__ . '\TransactionIdTypeClass' )
         {
             return $transaction_id->Sanitize();
         }
@@ -565,7 +567,7 @@ function SanitizeTransactionId($transaction_id)
 /***********************************************************************************************************************
  * Cheque State Type
  **********************************************************************************************************************/
-class BCF_BitcoinBank_ChequeStateTypeClass extends BCF_BitcoinBank_BaseTypeClass
+class ChequeStateTypeClass extends BaseTypeClass
 {
     protected $MetaData = array(
         'data_type' => 'string',
@@ -612,7 +614,7 @@ function SanitizeChequeState($bank_user_id)
 {
     if(gettype($bank_user_id) == 'object')
     {
-        if(get_class($bank_user_id) == 'BCF_BitcoinBank_ChequeStateTypeClass' )
+        if(get_class($bank_user_id) == __NAMESPACE__ . '\ChequeStateTypeClass' )
         {
             return $bank_user_id->Sanitize();
         }
@@ -623,7 +625,7 @@ function SanitizeChequeState($bank_user_id)
 /***********************************************************************************************************************
  * DateTime Type
  **********************************************************************************************************************/
-class BCF_BitcoinBank_DateTimeTypeClass extends BCF_BitcoinBank_BaseTypeClass
+class DateTimeTypeClass extends BaseTypeClass
 {
     protected $MetaData = array(
         'data_type' => 'string',
@@ -667,7 +669,7 @@ function SanitizeDateTime($bank_user_id)
 {
     if(gettype($bank_user_id) == 'object')
     {
-        if(get_class($bank_user_id) == 'BCF_BitcoinBank_DateTimeTypeClass' )
+        if(get_class($bank_user_id) == __NAMESPACE__ . '\DateTimeTypeClass' )
         {
             return $bank_user_id->Sanitize();
         }
@@ -678,7 +680,7 @@ function SanitizeDateTime($bank_user_id)
 /***********************************************************************************************************************
  * Transaction Type
  **********************************************************************************************************************/
-class BCF_BitcoinBank_TransactionDirTypeClass extends BCF_BitcoinBank_BaseTypeClass
+class TransactionDirTypeClass extends BaseTypeClass
 {
     protected $MetaData = array(
         'data_type' => 'string',
@@ -753,7 +755,7 @@ function SanitizeTransactionType($transaction_type)
 {
     if(gettype($transaction_type) == 'object')
     {
-        if(get_class($transaction_type) == 'BCF_BitcoinBank_TransactionDirTypeClass' )
+        if(get_class($transaction_type) == __NAMESPACE__ . '\TransactionDirTypeClass' )
         {
             return $transaction_type->Sanitize();
         }

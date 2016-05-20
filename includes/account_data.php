@@ -21,10 +21,14 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+namespace BCF_BitcoinBank;
+
 require_once('data_collection_base_class.php');
 require_once('data_types.php');
 
-class BCF_BitcoinAccountDataClass extends BCF_DataBaseClass
+define ('ACCOUNT_DATA_CLASS_NAME', __NAMESPACE__ . '\AccountDataClass');
+
+class AccountDataClass extends DataBaseClass
 {
     /* Database table name: */
     const DB_TABLE_NAME = 'bcf_bank_accounts';
@@ -38,25 +42,25 @@ class BCF_BitcoinAccountDataClass extends BCF_DataBaseClass
     /* Metadata describing database fields and data properties: */
     protected $MetaData = array(
         self::DB_FIELD_ACCOUNT_ID => array(
-            'class_type'    => 'BCF_BitcoinBank_AccountIdTypeClass',
+            'class_type'    => 'AccountIdTypeClass',
             'db_field_name' => self::DB_FIELD_ACCOUNT_ID,
             'db_primary_key'=> true,
             'default_value' => 0
         ),
         self::DB_FIELD_USER_ID => array(
-            'class_type'    => 'BCF_BitcoinBank_UserIdTypeClass',
+            'class_type'    => 'UserIdTypeClass',
             'db_field_name' => self::DB_FIELD_USER_ID,
             'db_primary_key'=> false,
             'default_value' => 0
         ),
         self::DB_FIELD_PASSWORD => array(
-            'class_type'    => 'BCF_BitcoinBank_PasswordTypeClass',
+            'class_type'    => 'PasswordTypeClass',
             'db_field_name' => self::DB_FIELD_PASSWORD,
             'db_primary_key'=> false,
             'default_value' => ''
         ),
         self::DB_FIELD_NAME => array(
-            'class_type'    => 'BCF_BitcoinBank_NameTypeClass',
+            'class_type'    => 'NameTypeClass',
             'db_field_name' => self::DB_FIELD_NAME,
             'db_primary_key'=> false,
             'default_value' => 'Unnamed'

@@ -21,11 +21,12 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+namespace BCF_BitcoinBank;
 
 require_once('accounting.php');
 require_once('data_types.php');
 
-class BCF_BitcoinBankUserHandlerClass extends BCF_BitcoinBankAccountingClass
+class UserHandlerClass extends AccountingClass
 {
     public function __construct()
     {
@@ -48,7 +49,7 @@ class BCF_BitcoinBankUserHandlerClass extends BCF_BitcoinBankAccountingClass
                 if($account_owner_id != null)
                 {
                     $current_user = wp_get_current_user();
-                    $wp_id = new BCF_BitcoinBank_WpUserIdTypeClass($current_user->ID);
+                    $wp_id = new WpUserIdTypeClass($current_user->ID);
                     $bank_user_id = $this->GetBankUserIdFromWpUser($wp_id);
 
                     if ($account_owner_id->GetInt() == $bank_user_id->GetInt())
@@ -86,7 +87,7 @@ class BCF_BitcoinBankUserHandlerClass extends BCF_BitcoinBankAccountingClass
         if(is_user_logged_in())
         {
             $current_user = wp_get_current_user();
-            $wp_id = new BCF_BitcoinBank_WpUserIdTypeClass($current_user->ID);
+            $wp_id = new WpUserIdTypeClass($current_user->ID);
 
             $bank_user_data = $this->GetBankUserDataFromWpUser($wp_id);
             if(!empty($bank_user_data))
@@ -101,7 +102,7 @@ class BCF_BitcoinBankUserHandlerClass extends BCF_BitcoinBankAccountingClass
 
     public function GetUsersAccountBalance($account_id)
     {
-        $balance = -1;
+        $balance = null;
         
         if(SanitizeAccountId($account_id))
         {
@@ -143,8 +144,8 @@ class BCF_BitcoinBankUserHandlerClass extends BCF_BitcoinBankAccountingClass
                     if ($this->IsCurrentUserAccountOwner($account_id_from))
                     {
                         $timestamp = $this->DB_GetCurrentTimeStamp();
-                        $transaction_type_withdraw = new BCF_BitcoinBank_TransactionDirTypeClass('WITHDRAW');
-                        $transaction_type_add = new BCF_BitcoinBank_TransactionDirTypeClass('ADD');
+                        $transaction_type_withdraw = new TransactionDirTypeClass('WITHDRAW');
+                        $transaction_type_add = new TransactionDirTypeClass('ADD');
                         $transaction_id = $this->MakeTransaction(
                             $account_id_from,
                             $account_id_to,
@@ -185,15 +186,15 @@ class BCF_BitcoinBankUserHandlerClass extends BCF_BitcoinBankAccountingClass
             /* First, check if Wordpress user has a bank user id */
             $current_user = wp_get_current_user();
 
-            $wp_id = new BCF_BitcoinBank_WpUserIdTypeClass($current_user->ID);
+            $wp_id = new WpUserIdTypeClass($current_user->ID);
 
             $bank_user_data = $this->GetBankUserDataFromWpUser($wp_id);
             if(is_null($bank_user_data))
             {
                 /* WP User has no bank user, create one */
-                $wp_user_id = new BCF_BitcoinBank_WpUserIdTypeClass($current_user->ID);
+                $wp_user_id = new WpUserIdTypeClass($current_user->ID);
                 $name_str   = $current_user->first_name . ' ' . $current_user->last_name;
-                $name       = new BCF_BitcoinBank_TextTypeClass($name_str);
+                $name       = new TextTypeClass($name_str);
 
                 $bank_user_data = $this->CreateBankUser($wp_user_id, $name);
             }
@@ -207,7 +208,7 @@ class BCF_BitcoinBankUserHandlerClass extends BCF_BitcoinBankAccountingClass
                     $account_info_list = $this->GetAccountInfoList($bank_user_id);
                     if(count($account_info_list) == 0)
                     {
-                        $password = new BCF_BitcoinBank_PasswordTypeClass("");
+                        $password = new PasswordTypeClass("");
 
                         $account = $this->CreateBankAccount($bank_user_id, $password);
                         if( ! is_null($account))

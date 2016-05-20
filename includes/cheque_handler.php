@@ -21,10 +21,11 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+namespace BCF_BitcoinBank;
 
 require_once('accounting.php');
 
-class BCF_BitcoinBankChequeHandlerClass extends BCF_BitcoinBankAccountingClass
+class ChequeHandlerClass extends AccountingClass
 {
     public function __construct()
     {
@@ -47,15 +48,15 @@ class BCF_BitcoinBankChequeHandlerClass extends BCF_BitcoinBankAccountingClass
                 {
                     $issue_datetime = $this->DB_GetCurrentTimeStamp();
                     $cheque_account_id = $this->GetChequeEscrollAccount();
-                    $debit_transaction_type = new BCF_BitcoinBank_TransactionDirTypeClass('ADD');
-                    $credit_transaction_type = new BCF_BitcoinBank_TransactionDirTypeClass('CHEQUE');
+                    $debit_transaction_type = new TransactionDirTypeClass('ADD');
+                    $credit_transaction_type = new TransactionDirTypeClass('CHEQUE');
 
                     $transaction_id = $this->MakeTransaction($issuer_account_id, $cheque_account_id, $issue_datetime, $amount, $credit_transaction_type, $debit_transaction_type);
 
                     if(!is_null($transaction_id))
                     {
-                        $expire_datetime = new BCF_BitcoinBank_DateTimeTypeClass($issue_datetime->GetSeconds() + $expire_seconds);
-                        $escrow_datetime = new BCF_BitcoinBank_DateTimeTypeClass($issue_datetime->GetSeconds() + $escrow_seconds);
+                        $expire_datetime = new DateTimeTypeClass($issue_datetime->GetSeconds() + $expire_seconds);
+                        $escrow_datetime = new DateTimeTypeClass($issue_datetime->GetSeconds() + $escrow_seconds);
                         
                         $cheque = $this->CreateCheque($issuer_account_id, $issue_datetime, $expire_datetime, $escrow_datetime, $amount, $reference);
                         if(is_null($cheque))
@@ -74,7 +75,7 @@ class BCF_BitcoinBankChequeHandlerClass extends BCF_BitcoinBankAccountingClass
     {
         $result = 'Undefined error.';
 
-        $validate_cheque = new BCF_Bank_ChequeDataClass();
+        $validate_cheque = new ChequeDataClass();
         if($validate_cheque->SetDataFromDbRecord($cheque_data_array))
         {
             $validate_cheque_id = $validate_cheque->GetChequeId();
