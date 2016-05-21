@@ -26,7 +26,7 @@ namespace BCF_BitcoinBank;
 require_once('data_collection_base_class.php');
 require_once('data_types.php');
 
-define ('CHEQUE_DATA_CLASS_NAME', __NAMESPACE__ . '\ChequeDataClass');
+define ('BCF_BITCOINBANK_CHEQUE_DATA_CLASS_NAME', __NAMESPACE__ . '\ChequeDataClass');
 
 class ChequeDataClass extends DataBaseClass
 {
@@ -654,7 +654,7 @@ function SanitizeCheque($cheque)
 {
     if(gettype($cheque) == 'object')
     {
-        if(get_class($cheque) == CHEQUE_DATA_CLASS_NAME)
+        if(get_class($cheque) == BCF_BITCOINBANK_CHEQUE_DATA_CLASS_NAME)
         {
             return $cheque->SanitizeData();
         }

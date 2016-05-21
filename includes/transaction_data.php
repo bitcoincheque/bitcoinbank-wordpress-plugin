@@ -26,7 +26,7 @@ namespace BCF_BitcoinBank;
 require_once('data_collection_base_class.php');
 require_once('data_types.php');
 
-define ('TRANSACTION_DATA_CLASS_NAME', __NAMESPACE__ . '\TransactionDataClass');
+define ('BCF_BITCOINBANK_TRANSACTION_DATA_CLASS_NAME', __NAMESPACE__ . '\TransactionDataClass');
 
 class TransactionDataClass extends DataBaseClass
 {

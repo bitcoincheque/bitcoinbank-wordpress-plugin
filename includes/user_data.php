@@ -26,7 +26,7 @@ namespace BCF_BitcoinBank;
 require_once('data_collection_base_class.php');
 require_once('data_types.php');
 
-define ('USER_DATA_CLASS_NAME', __NAMESPACE__ . '\UserDataClass');
+define ('BCF_BITCOINBANK_USER_DATA_CLASS_NAME', __NAMESPACE__ . '\UserDataClass');
 
 class UserDataClass extends DataBaseClass
 {

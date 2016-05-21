@@ -95,7 +95,7 @@ class DatabaseInterfaceClass
 
             $record_list = $this->DB_GetRecordListByFieldValue(TransactionDataClass::DB_TABLE_NAME, TransactionDataClass::DB_FIELD_TRANSACTION_ID, $field_value);
 
-            $transaction_list = $this->DB_LoadRecordsIntoDataCollection($record_list, TRANSACTION_DATA_CLASS_NAME);
+            $transaction_list = $this->DB_LoadRecordsIntoDataCollection($record_list, BCF_BITCOINBANK_TRANSACTION_DATA_CLASS_NAME);
 
             if(count( $transaction_list ) == 1)
             {
@@ -116,7 +116,7 @@ class DatabaseInterfaceClass
 
             $record_list = $this->DB_GetRecordListByFieldValue(TransactionDataClass::DB_TABLE_NAME, TransactionDataClass::DB_FIELD_ACCOUNT_ID, $field_value);
 
-            $transaction_list = $this->DB_LoadRecordsIntoDataCollection($record_list, TRANSACTION_DATA_CLASS_NAME);
+            $transaction_list = $this->DB_LoadRecordsIntoDataCollection($record_list, BCF_BITCOINBANK_TRANSACTION_DATA_CLASS_NAME);
         }
 
         return $transaction_list;
@@ -132,7 +132,7 @@ class DatabaseInterfaceClass
 
             $record_list = $this->DB_GetRecordListByFieldValue(ChequeDataClass::DB_TABLE_NAME, ChequeDataClass::DB_FIELD_USER_ACCOUNT_ID, $field_value);
 
-            $cheque_list = $this->DB_LoadRecordsIntoDataCollection($record_list, CHEQUE_DATA_CLASS_NAME);
+            $cheque_list = $this->DB_LoadRecordsIntoDataCollection($record_list, BCF_BITCOINBANK_CHEQUE_DATA_CLASS_NAME);
         }
         return $cheque_list;
     }
@@ -256,7 +256,7 @@ class DatabaseInterfaceClass
 
             $record_list = $this->DB_GetRecordListByFieldValue(AccountDataClass::DB_TABLE_NAME, AccountDataClass::DB_FIELD_USER_ID, $field_value);
 
-            $account_info_list = $this->DB_LoadRecordsIntoDataCollection($record_list, ACCOUNT_DATA_CLASS_NAME);
+            $account_info_list = $this->DB_LoadRecordsIntoDataCollection($record_list, BCF_BITCOINBANK_ACCOUNT_DATA_CLASS_NAME);
         }
 
         return $account_info_list;
@@ -291,7 +291,7 @@ class DatabaseInterfaceClass
 
             $record_list = $this->DB_GetRecordListByFieldValue(ChequeDataClass::DB_TABLE_NAME, ChequeDataClass::DB_FIELD_STATE, $field_value);
 
-            $cheque_data_list = $this->DB_LoadRecordsIntoDataCollection($record_list, CHEQUE_DATA_CLASS_NAME);
+            $cheque_data_list = $this->DB_LoadRecordsIntoDataCollection($record_list, BCF_BITCOINBANK_CHEQUE_DATA_CLASS_NAME);
         }
 
         return $cheque_data_list;
@@ -347,9 +347,9 @@ function DB_CreateOrUpdateDatabaseTable($class)
 
 function DB_CreateOrUpdateDatabaseTables()
 {
-    DB_CreateOrUpdateDatabaseTable('\\' . USER_DATA_CLASS_NAME);
-    DB_CreateOrUpdateDatabaseTable('\\' . ACCOUNT_DATA_CLASS_NAME);
-    DB_CreateOrUpdateDatabaseTable('\\' . TRANSACTION_DATA_CLASS_NAME);
-    DB_CreateOrUpdateDatabaseTable('\\' . CHEQUE_DATA_CLASS_NAME);
+    DB_CreateOrUpdateDatabaseTable('\\' . BCF_BITCOINBANK_USER_DATA_CLASS_NAME);
+    DB_CreateOrUpdateDatabaseTable('\\' . BCF_BITCOINBANK_ACCOUNT_DATA_CLASS_NAME);
+    DB_CreateOrUpdateDatabaseTable('\\' . BCF_BITCOINBANK_TRANSACTION_DATA_CLASS_NAME);
+    DB_CreateOrUpdateDatabaseTable('\\' . BCF_BITCOINBANK_CHEQUE_DATA_CLASS_NAME);
 }
 
