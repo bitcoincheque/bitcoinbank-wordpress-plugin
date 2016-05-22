@@ -23,19 +23,64 @@
 
 namespace BCF_BitcoinBank;
 
+Class TableRowClass
+{
+    private $CellItems;
+    private $RowLink;
+
+    public function __construct($cell_items)
+    {
+        $this->CellItems = $cell_items;
+    }
+
+    public function GetCellItems()
+    {
+        return $this->CellItems;
+    }
+
+    public function GetRowLink()
+    {
+        return $this->RowLink;
+    }
+}
+
+Class TableCellClass
+{
+    private $Text;
+    private $Link;
+
+    public function __construct($text, $link)
+    {
+        $this->Text = $text;
+        $this->Link = $link;
+    }
+
+    public function GetText()
+    {
+        return $this->Text;
+    }
+
+    public function GetLink()
+    {
+        return $this->Link;
+    }
+}
+
 class HtmlTableClass
 {
     private $table_rows = array();
     private $current_line = array();
 
-    public function AddLineItem($text)
+    public function AddLineItem($text, $link='')
     {
-        $this->current_line[] = $text;
+        $cell_item = new TableCellClass($text, $link);
+        $this->current_line[] = $cell_item;
     }
 
-    public function RowFeed()
+    public function RowFeed($row_link='')
     {
-        $this->table_rows[] = $this->current_line;
+        $row = new TableRowClass($this->current_line);
+        $this->table_rows[] = $row;
         $this->current_line = array();
     }
     
@@ -46,10 +91,26 @@ class HtmlTableClass
         foreach($this->table_rows as $row)
         {
             $html .= '<tr>';
-            foreach($row as $line_item)
+            foreach($row->GetCellItems() as $cell_item)
             {
-                $html .= '<td>' . $line_item . '</td>';
-                
+                $item_text = $cell_item->GetText();
+                $item_link = $cell_item->GetLink();
+
+                $html .= '<td>';
+
+                if($item_link != '')
+                {
+                    $html .= '<a href="' . $item_link . '">';
+                }
+
+                $html .= $item_text;
+
+                if($item_link != '')
+                {
+                    $html .= '</a>';
+                }
+
+                $html .= '</td>';
             }
             $html .= '</tr>';
         }

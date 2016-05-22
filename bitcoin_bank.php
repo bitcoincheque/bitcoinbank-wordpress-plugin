@@ -46,7 +46,12 @@ function SanitizeInputText($text)
     $text = str_replace('>', '&gt;', $text);
 
     return $text;
+}
 
+function SanitizeInputInteger($text)
+{
+    $value = intval($text);
+    return $value;
 }
 
 function ProcessAjaxValidateCheque()
@@ -89,18 +94,62 @@ function ProcessAjaxValidateCheque()
 function ProcessAjaxRequestCheque()
 {
     $amount_val = intval(SanitizeInputText($_REQUEST['amount']));
+    $currency_str = SanitizeInputText($_REQUEST['currency']);
+    $paylink_str = SanitizeInputText($_REQUEST['paylink']);
+    $receiver_name = SanitizeInputText($_REQUEST['receiver_name']);
+    $receiver_address = SanitizeInputText($_REQUEST['receiver_address']);
+    $receiver_url = SanitizeInputText($_REQUEST['receiver_url']);
+    $receiver_email = SanitizeInputText($_REQUEST['receiver_email']);
+    $business_no = SanitizeInputText($_REQUEST['business_no']);
+    $reg_country = SanitizeInputText($_REQUEST['reg_country']);
+    $receiver_wallet = SanitizeInputText($_REQUEST['receiver_wallet']);
+    $min_expire_sec = SanitizeInputText($_REQUEST['min_expire_sec']);
+    $max_escrow_sec = SanitizeInputText($_REQUEST['max_escrow_sec']);
+    $reference_str = SanitizeInputText($_REQUEST['ref']);
     $account_id_val = intval(SanitizeInputText($_REQUEST['account']));
     $account_password_str = SanitizeInputText($_REQUEST['passwd']);
-    $reference_str = SanitizeInputText($_REQUEST['ref']);
+    $description = SanitizeInputText($_REQUEST['description']);
 
-    $account_id       = new AccountIdTypeClass($account_id_val);
+    if($currency_str != 'BTC')
+    {
+        echo 'Unsupported curreny';
+        die();
+    }
+
+    $issuer_account_id= new AccountIdTypeClass($account_id_val);
     $account_password = new PasswordTypeClass($account_password_str);
     $amount           = new ValueTypeClass($amount_val);
     $reference        = new TextTypeClass($reference_str);
+    $receiver_name    = new NameTypeClass($receiver_name);
+    $receiver_address = new TextTypeClass($receiver_address);
+    $receiver_url     = new TextTypeClass($receiver_url);
+    $receiver_email   = new TextTypeClass($receiver_email);
+    $business_no      = new TextTypeClass($business_no);
+    $reg_country      = new TextTypeClass($reg_country);
+    $receiver_wallet  = new TextTypeClass($receiver_wallet);
+    $description      = new TextTypeClass($description);
+
+    $expire_seconds = 300;
+    $escrow_seconds = 600;
 
     $cheque_handler = new ChequeHandlerClass();
 
-    $cheque = $cheque_handler->IssueCheque($account_id, $account_password, $amount, 300, 3600, $reference);
+    $cheque = $cheque_handler->IssueCheque(
+        $issuer_account_id,
+        $account_password,
+        $amount,
+        $expire_seconds,
+        $escrow_seconds,
+        $reference,
+        $receiver_name,
+        $receiver_address,
+        $receiver_url,
+        $receiver_email,
+        $business_no,
+        $reg_country,
+        $receiver_wallet,
+        $description
+    );
 
     if(!is_null($cheque))
     {
@@ -336,61 +385,193 @@ function ListUserCheques()
     {
         $currency = 'uBTC';
 
-        if ( ! empty( $_REQUEST['select_account'] ) ) {
-            $show_account_str = SanitizeInputText( $_REQUEST['select_account'] );
-            $account_selected = new _AccountIdTypeClass(0);
-            $account_selected->SetDataFromString($show_account_str);
+        if ( ! empty( $_REQUEST['cheque'] ) )
+        {
+            $cheque_id_val = SanitizeInputInteger($_REQUEST['cheque']);
+            $cheque_id = new ChequeIdTypeClass($cheque_id_val);
+
+            $user_handler = new UserHandlerClass();
+            $cheque = $user_handler->GetCheque($cheque_id);
+
+            $html_table = new HtmlTableClass();
+
+            $html_table->AddLineItem('Cheque No.:');
+            $html_table->AddLineItem($cheque->GetChequeId()->GetString());
+            $html_table->RowFeed();
+
+            $html_table->AddLineItem('Value:');
+            $html_table->AddLineItem($cheque->GetValue()->GetFormattedCurrencyString($currency, true));
+            $html_table->RowFeed();
+
+            $html_table->AddLineItem('Cheque status:');
+            $html_table->AddLineItem($cheque->GetChequeState()->GetString());
+            $html_table->RowFeed();
+
+            $html_table->AddLineItem('Issuer Name:');
+            $html_table->AddLineItem($cheque->GetIssuerName()->GetString());
+            $html_table->RowFeed();
+
+            $html_table->AddLineItem('Issuer Address');
+            $html_table->AddLineItem($cheque->GetIssuerAddress()->GetString());
+            $html_table->RowFeed();
+
+            $html_table->AddLineItem('Issue date/time:');
+            $html_table->AddLineItem($cheque->GetIssueDateTime()->GetString());
+            $html_table->RowFeed();
+
+            $html_table->AddLineItem('Expire date/time:');
+            $html_table->AddLineItem($cheque->GetExpireDateTime()->GetString());
+            $html_table->RowFeed();
+
+            $html_table->AddLineItem('Escrow date/time:');
+            $html_table->AddLineItem($cheque->GetEscrowDateTime()->GetString());
+            $html_table->RowFeed();
+
+            $html_table->AddLineItem('Fixed fee:');
+            $html_table->AddLineItem($cheque->GetFixedFee()->GetFormattedCurrencyString($currency, true));
+            $html_table->RowFeed();
+
+            $html_table->AddLineItem('Collection fee');
+            $html_table->AddLineItem($cheque->GetCollectionFee()->GetFormattedCurrencyString($currency, true));
+            $html_table->RowFeed();
+
+            $html_table->AddLineItem('Will be stamped:');
+            $html_table->AddLineItem($cheque->GetStamp()->GetString());
+            $html_table->RowFeed();
+
+            $html_table->AddLineItem('Collection url:');
+            $html_table->AddLineItem($cheque->GetCollectUrl()->GetString());
+            $html_table->RowFeed();
+
+            $html_table->AddLineItem('Receiver\'s name:');
+            $html_table->AddLineItem($cheque->GetReceiverName()->GetString());
+            $html_table->RowFeed();
+
+            $address = $cheque->GetReceiverAddress()->GetString();
+            $address = str_replace("\r\n",'<br>' , $address);
+            $html_table->AddLineItem('Receiver\'s address:');
+            $html_table->AddLineItem($address);
+            $html_table->RowFeed();
+
+            $html_table->AddLineItem('Receiver\'s web site:');
+            $html_table->AddLineItem($cheque->GetReceiverUrl()->GetString(), $cheque->GetReceiverUrl()->GetString());
+            $html_table->RowFeed();
+
+            $html_table->AddLineItem('Receiver\'s e-mail:');
+            $html_table->AddLineItem($cheque->GetReceiverEmail()->GetString());
+            $html_table->RowFeed();
+
+            $html_table->AddLineItem('Receiver\'s business no.:');
+            $html_table->AddLineItem($cheque->GetReceiverBusinessNo()->GetString());
+            $html_table->RowFeed();
+
+            $html_table->AddLineItem('Receiver\'s registration country:');
+            $html_table->AddLineItem($cheque->GetReceiverRegCountry()->GetString());
+            $html_table->RowFeed();
+
+            $html_table->AddLineItem('Receiver\'s Wallet:');
+            $html_table->AddLineItem($cheque->GetReceiverWallet()->GetString());
+            $html_table->RowFeed();
+
+            $html_table->AddLineItem('Receiver\'s reference:');
+            $html_table->AddLineItem($cheque->GetReceiverReference()->GetString());
+            $html_table->RowFeed();
+
+            $html_table->AddLineItem('Attached user\'s reference:');
+            $html_table->AddLineItem($cheque->GetUserReference()->GetString());
+            $html_table->RowFeed();
+
+            $html_table->AddLineItem('Attached user\'s name:');
+            $html_table->AddLineItem($cheque->GetUserName()->GetString());
+            $html_table->RowFeed();
+
+            $html_table->AddLineItem('Attached user\'s address:');
+            $html_table->AddLineItem($cheque->GetUserAddress()->GetString());
+            $html_table->RowFeed();
+
+            $html_table->AddLineItem('Secret token:');
+            $html_table->AddLineItem($cheque->GetNounce()->GetString());
+            $html_table->RowFeed();
+
+            $html_table2 = new HtmlTableClass();
+            $html_table2->AddLineItem('Account No.:');
+            $html_table2->AddLineItem($cheque->GetOwnerAccountId()->GetString());
+            $html_table2->RowFeed();
+
+            $html_table2->AddLineItem('Description:');
+            $html_table2->AddLineItem($cheque->GetDescription()->GetString());
+            $html_table2->RowFeed();
+
+            $output = '<h3>Details for Cheque No. ' . strval($cheque_id_val) . '</h3>';
+            $output .= '<b>Public data:</b><br>This information is included in cheque and sent to cheque receiver.';
+            $output .= $html_table->GetHtmlTable();
+            $output .= '<b>Private data:</b><br>Information not included in the cheque.';
+            $output .= $html_table2->GetHtmlTable();
+            $output .= '<br><h3>Developer\'s details</h3>';
+            $output .= '<b>Bitcoin Cheque in JSON format:</b></b><br>' . $cheque->GetJson();
         }
         else
         {
-            $account_selected = null;
-        }
+            if( ! empty($_REQUEST['select_account']))
+            {
+                $show_account_str = SanitizeInputText($_REQUEST['select_account']);
+                $account_selected = new _AccountIdTypeClass(0);
+                $account_selected->SetDataFromString($show_account_str);
+            }
+            else
+            {
+                $account_selected = null;
+            }
 
-        $user_handler = new UserHandlerClass();
-        $account_data_list = $user_handler->GetAccountInfoListCurrentUser();
+            $user_handler      = new UserHandlerClass();
+            $account_data_list = $user_handler->GetAccountInfoListCurrentUser();
 
 
-        if ( $account_selected == null ) {
-            $account_data = $account_data_list[0];
-            $account_selected = $account_data->GetAccountId();
-        }
-        $cheque_list = $user_handler->GetChequeListCurrentUser($account_selected);
+            if($account_selected == null)
+            {
+                $account_data     = $account_data_list[0];
+                $account_selected = $account_data->GetAccountId();
+            }
+            $cheque_list = $user_handler->GetChequeListCurrentUser($account_selected);
 
-        $html_select_account_form = MakeHtmlFormSelectAccount($user_handler, $account_data_list, $account_selected, $currency);
+            $html_select_account_form = MakeHtmlFormSelectAccount($user_handler, $account_data_list, $account_selected, $currency);
 
-        $html_table = new HtmlTableClass();
-        $html_table->AddLineItem('Cheque No.');
-        $html_table->AddLineItem('Issue<br>Date/Time');
-        $html_table->AddLineItem('Expire<br>Date/Time');
-        $html_table->AddLineItem('Escrow<br>Date/Time');
-        $html_table->AddLineItem('State');
-        $html_table->AddLineItem('Amount');
-        $html_table->RowFeed();
-
-        foreach (array_reverse($cheque_list) as $cheque)
-        {
-            $cheque_id = $cheque->GetChequeId();
-            $issue_datetime = $cheque->GetIssueDateTime();
-            $expire_datetime = $cheque->GetExpireDateTime();
-            $escrow_datetime = $cheque->GetEscrowDateTime();
-            $state = $cheque->GetChequeState();
-            $amount = $cheque->GetValue();
-
-            $html_table->AddLineItem($cheque_id->GetString());
-            $timestamp_str = str_replace(' ', '<br>', $issue_datetime->GetString());
-            $html_table->AddLineItem($timestamp_str);
-            $timestamp_str = str_replace(' ', '<br>', $expire_datetime->GetString());
-            $html_table->AddLineItem($timestamp_str);
-            $timestamp_str = str_replace(' ', '<br>', $escrow_datetime->GetString());
-            $html_table->AddLineItem($timestamp_str);
-            $html_table->AddLineItem($state->GetString());
-            $html_table->AddLineItem(GetFormattedCurrency($amount->GetInt(), $currency, true));
+            $html_table = new HtmlTableClass();
+            $html_table->AddLineItem('Cheque No.');
+            $html_table->AddLineItem('Issue<br>Date/Time');
+            $html_table->AddLineItem('Expire<br>Date/Time');
+            $html_table->AddLineItem('Escrow<br>Date/Time');
+            $html_table->AddLineItem('State');
+            $html_table->AddLineItem('Amount');
             $html_table->RowFeed();
-        }
 
-        $output = $html_select_account_form;
-        $output .= 'Cheques draw from account ' . $account_selected->GetString() . ':<br>';
-        $output .= $html_table->GetHtmlTable();
+            foreach(array_reverse($cheque_list) as $cheque)
+            {
+                $cheque_id       = $cheque->GetChequeId();
+                $issue_datetime  = $cheque->GetIssueDateTime();
+                $expire_datetime = $cheque->GetExpireDateTime();
+                $escrow_datetime = $cheque->GetEscrowDateTime();
+                $state           = $cheque->GetChequeState();
+                $amount          = $cheque->GetValue();
+                $details_link    = site_url() . '/index.php/cheques?cheque=' . $cheque_id->GetString();
+
+                $html_table->AddLineItem($cheque_id->GetString(), $details_link);
+                $timestamp_str = str_replace(' ', '<br>', $issue_datetime->GetString());
+                $html_table->AddLineItem($timestamp_str);
+                $timestamp_str = str_replace(' ', '<br>', $expire_datetime->GetString());
+                $html_table->AddLineItem($timestamp_str);
+                $timestamp_str = str_replace(' ', '<br>', $escrow_datetime->GetString());
+                $html_table->AddLineItem($timestamp_str);
+                $html_table->AddLineItem($state->GetString());
+                $html_table->AddLineItem(GetFormattedCurrency($amount->GetInt(), $currency, true));
+
+                $html_table->RowFeed();
+            }
+
+            $output = $html_select_account_form;
+            $output .= 'Cheques draw from account ' . $account_selected->GetString() . ':<br>';
+            $output .= $html_table->GetHtmlTable();
+        }
     }
     else
     {

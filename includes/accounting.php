@@ -410,7 +410,21 @@ class AccountingClass extends DatabaseInterfaceClass
     }
 
 
-    protected function CreateCheque($issuer_account_id, $issue_datetime, $expire_datetime, $escrow_datetime, $amount, $reference)
+    protected function CreateCheque(
+        $issuer_account_id,
+        $issue_datetime,
+        $expire_datetime,
+        $escrow_datetime,
+        $amount,
+        $reference,
+        $receiver_name,
+        $receiver_address,
+        $receiver_url,
+        $receiver_email,
+        $business_no,
+        $reg_country,
+        $receiver_wallet,
+        $description)
     {
         $cheque = null;
 
@@ -419,7 +433,15 @@ class AccountingClass extends DatabaseInterfaceClass
             and SanitizeDateTime($expire_datetime)
             and SanitizeDateTime($escrow_datetime)
             and SanitizeAmount($amount)
-            and SanitizeText($reference))
+            and SanitizeText($reference)
+            and SanitizeName($receiver_name)
+            and SanitizeText($receiver_address)
+            and SanitizeText($receiver_url)
+            and SanitizeText($receiver_email)
+            and SanitizeText($business_no)
+            and SanitizeText($reg_country)
+            and SanitizeText($receiver_wallet)
+            and SanitizeText($description))
         {
             if ($amount->GetInt() > 0)
             {
@@ -441,6 +463,14 @@ class AccountingClass extends DatabaseInterfaceClass
                 $cheque->SetReceiverReference($reference);
                 $cheque->SetNounce($secret_token);
                 $cheque->SetOwnerAccountId($issuer_account_id);
+                $cheque->SetReceiverName($receiver_name);
+                $cheque->SetReceiverAddress($receiver_address);
+                $cheque->SetReceiverUrl($receiver_url);
+                $cheque->SetReceiverEmail($receiver_email);
+                $cheque->SetReceiverBusinessNo($business_no);
+                $cheque->SetReceiverRegCountry($reg_country);
+                $cheque->SetReceiverWallet($receiver_wallet);
+                $cheque->SetDescription($description);
 
                 $collect_url_str = site_url() . '/wp-admin/admin-ajax.php?action=bcf_bitcoinbank_process_ajax_validate_cheque';
                 $collect_url = new TextTypeClass($collect_url_str);
@@ -484,20 +514,16 @@ class AccountingClass extends DatabaseInterfaceClass
     }
     */
 
-    protected function GetCheque($cheque_id)
+    public function GetCheque($cheque_id)
     {
+        $cheque = null;
+            
         if(SanitizeChequeId($cheque_id))
         {
-            $cheque_record = $this->GetChequeRecord($cheque_id);
-            if(!empty($cheque_record))
-            {
-                $cheque = new BitCoinChequeClass();
-                if ($cheque->SetDataFromArray($cheque_record))
-                {
-                    return $cheque;
-                }
-            }
+            $cheque = $this->DB_GetChequeData($cheque_id);
         }
+        
+        return $cheque;
     }
 
     protected function GetChequeList($issuer_account_id)

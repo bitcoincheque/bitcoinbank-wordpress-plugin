@@ -48,7 +48,11 @@ class ChequeDataClass extends DataBaseClass
     const DB_FIELD_EXPIRE_DATETIME = 'expire_datetime';
     const DB_FIELD_ESCROW_DATETIME = 'escrow_datetime';
     const DB_FIELD_RECEIVER_NAME = 'receiver_name';
-    const DB_FIELD_RECEIVER_ADDRESS = 'receiver_address';
+    const DB_FIELD_RECEIVER_ADDRESS = 'receiver_url';
+    const DB_FIELD_RECEIVER_URL = 'receiver_email';
+    const DB_FIELD_RECEIVER_EMAIL = 'receiver_address';
+    const DB_FIELD_RECEIVER_BUSINESS_NO = 'receiver_business_no';
+    const DB_FIELD_RECEIVER_REG_COUNTRY = 'receiver_reg_country';
     const DB_FIELD_RECEIVER_WALLET = 'receiver_wallet_address';
     const DB_FIELD_RECEIVER_REFERENCE = 'receiver_reference';
     const DB_FIELD_USER_REFERENCE = 'user_ref';
@@ -56,6 +60,7 @@ class ChequeDataClass extends DataBaseClass
     const DB_FIELD_USER_ADDRESS = 'user_address';
     const DB_FIELD_STATE = 'state';
     const DB_FIELD_USER_ACCOUNT_ID = 'issuer_account_id';
+    const DB_FIELD_DESCRIPTION = 'description';
 
     /* Metadata describing database fields and data properties: */
     protected $MetaData = array(
@@ -164,6 +169,34 @@ class ChequeDataClass extends DataBaseClass
             'default_value' => '',
             'public_data'   => true
         ),
+        self::DB_FIELD_RECEIVER_URL => array(
+            'class_type'    => 'TextTypeClass',
+            'db_field_name' => self::DB_FIELD_RECEIVER_URL,
+            'db_primary_key'=> false,
+            'default_value' => '',
+            'public_data'   => true
+        ),
+        self::DB_FIELD_RECEIVER_EMAIL => array(
+            'class_type'    => 'TextTypeClass',
+            'db_field_name' => self::DB_FIELD_RECEIVER_EMAIL,
+            'db_primary_key'=> false,
+            'default_value' => '',
+            'public_data'   => true
+        ),
+        self::DB_FIELD_RECEIVER_BUSINESS_NO => array(
+            'class_type'    => 'TextTypeClass',
+            'db_field_name' => self::DB_FIELD_RECEIVER_BUSINESS_NO,
+            'db_primary_key'=> false,
+            'default_value' => '',
+            'public_data'   => true
+        ),
+        self::DB_FIELD_RECEIVER_REG_COUNTRY => array(
+            'class_type'    => 'TextTypeClass',
+            'db_field_name' => self::DB_FIELD_RECEIVER_REG_COUNTRY,
+            'db_primary_key'=> false,
+            'default_value' => '',
+            'public_data'   => true
+        ),
         self::DB_FIELD_RECEIVER_WALLET => array(
             'class_type'    => 'TextTypeClass',
             'db_field_name' => self::DB_FIELD_RECEIVER_WALLET,
@@ -212,7 +245,14 @@ class ChequeDataClass extends DataBaseClass
             'db_primary_key'=> false,
             'default_value' => 0,
             'public_data'   => false
-        )
+        ),
+        self::DB_FIELD_DESCRIPTION => array(
+            'class_type'    => 'TextTypeClass',
+            'db_field_name' => self::DB_FIELD_DESCRIPTION,
+            'db_primary_key'=> false,
+            'default_value' => '',
+            'public_data'   => false
+        ),
     );
 
     public function __construct()
@@ -476,6 +516,74 @@ class ChequeDataClass extends DataBaseClass
         return $result;
     }
 
+    public function GetReceiverUrl()
+    {
+        return $this->GetDataObjects(self::DB_FIELD_RECEIVER_URL);
+    }
+
+    public function SetReceiverUrl($receiver_url)
+    {
+        $result = false;
+
+        if(SanitizeText($receiver_url))
+        {
+            $result = $this->SetDataObject(self::DB_FIELD_RECEIVER_URL, $receiver_url);
+        }
+
+        return $result;
+    }
+
+    public function GetReceiverEmail()
+    {
+        return $this->GetDataObjects(self::DB_FIELD_RECEIVER_EMAIL);
+    }
+
+    public function SetReceiverEmail($receiver_email)
+    {
+        $result = false;
+
+        if(SanitizeText($receiver_email))
+        {
+            $result = $this->SetDataObject(self::DB_FIELD_RECEIVER_EMAIL, $receiver_email);
+        }
+
+        return $result;
+    }
+    
+    public function GetReceiverBusinessNo()
+    {
+        return $this->GetDataObjects(self::DB_FIELD_RECEIVER_BUSINESS_NO);
+    }
+
+    public function SetReceiverBusinessNo($receiver_business_no)
+    {
+        $result = false;
+
+        if(SanitizeText($receiver_business_no))
+        {
+            $result = $this->SetDataObject(self::DB_FIELD_RECEIVER_BUSINESS_NO, $receiver_business_no);
+        }
+
+        return $result;
+    }
+    
+    public function GetReceiverRegCountry()
+    {
+        return $this->GetDataObjects(self::DB_FIELD_RECEIVER_REG_COUNTRY);
+    }
+
+    public function SetReceiverRegCountry($receiver_reg_country)
+    {
+        $result = false;
+
+        if(SanitizeText($receiver_reg_country))
+        {
+            $result = $this->SetDataObject(self::DB_FIELD_RECEIVER_REG_COUNTRY, $receiver_reg_country);
+        }
+
+        return $result;
+    }
+
     public function GetReceiverWallet()
     {
         return $this->GetDataObjects(self::DB_FIELD_RECEIVER_WALLET);
@@ -590,6 +698,23 @@ class ChequeDataClass extends DataBaseClass
         if(SanitizeAccountId($users_account_id))
         {
             $result = $this->SetDataObject(self::DB_FIELD_USER_ACCOUNT_ID, $users_account_id);
+        }
+
+        return $result;
+    }
+    
+    public function GetDescription()
+    {
+        return $this->GetDataObjects(self::DB_FIELD_DESCRIPTION);
+    }
+
+    public function SetDescription($description)
+    {
+        $result = false;
+
+        if(SanitizeText($description))
+        {
+            $result = $this->SetDataObject(self::DB_FIELD_DESCRIPTION, $description);
         }
 
         return $result;

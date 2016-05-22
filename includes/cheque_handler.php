@@ -32,14 +32,37 @@ class ChequeHandlerClass extends AccountingClass
         parent::__construct();
     }
 
-    public function IssueCheque($issuer_account_id, $account_password, $amount, $expire_seconds, $escrow_seconds, $reference)
+    public function IssueCheque(
+        $issuer_account_id, 
+        $account_password, 
+        $amount, 
+        $expire_seconds, 
+        $escrow_seconds, 
+        $reference,
+        $receiver_name,
+        $receiver_address,
+        $receiver_url,
+        $receiver_email,
+        $business_no,
+        $reg_country,
+        $receiver_wallet,
+        $description)
     {
         $cheque =null;
 
         if(SanitizeAccountId($issuer_account_id) 
             and SanitizePositiveInteger($expire_seconds) 
             and SanitizePositiveInteger($escrow_seconds)
-            and SanitizeText($reference))
+            and SanitizeText($reference)
+            and SanitizeName($receiver_name)
+            and SanitizeText($receiver_address)
+            and SanitizeText($receiver_url)
+            and SanitizeText($receiver_email)
+            and SanitizeText($business_no)
+            and SanitizeText($reg_country)
+            and SanitizeText($receiver_wallet)
+            and SanitizeText($description)
+        )
         {
             $account_data = $this->GetAccountData($issuer_account_id);
             if(!is_null($account_data))
@@ -58,7 +81,22 @@ class ChequeHandlerClass extends AccountingClass
                         $expire_datetime = new DateTimeTypeClass($issue_datetime->GetSeconds() + $expire_seconds);
                         $escrow_datetime = new DateTimeTypeClass($issue_datetime->GetSeconds() + $escrow_seconds);
                         
-                        $cheque = $this->CreateCheque($issuer_account_id, $issue_datetime, $expire_datetime, $escrow_datetime, $amount, $reference);
+                        $cheque = $this->CreateCheque(
+                            $issuer_account_id, 
+                            $issue_datetime, 
+                            $expire_datetime, 
+                            $escrow_datetime, 
+                            $amount, 
+                            $reference, 
+                            $receiver_name,
+                            $receiver_address,
+                            $receiver_url,
+                            $receiver_email,
+                            $business_no,
+                            $reg_country,
+                            $receiver_wallet,
+                            $description);
+                        
                         if(is_null($cheque))
                         {
                             /* TODO Failed to create cheque, maybe need to clean up transaction */

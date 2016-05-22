@@ -317,13 +317,13 @@ class TextTypeClass extends BaseTypeClass
         return strval( parent::GetData() );
     }
 }
-function SanitizeText($bank_user_id)
+function SanitizeText($text)
 {
-    if(gettype($bank_user_id) == 'object')
+    if(gettype($text) == 'object')
     {
-        if(get_class($bank_user_id) == __NAMESPACE__ . '\TextTypeClass' )
+        if(get_class($text) == __NAMESPACE__ . '\TextTypeClass' )
         {
-            return $bank_user_id->Sanitize();
+            return $text->Sanitize();
         }
     }
     return false;
@@ -506,7 +506,65 @@ class ValueTypeClass extends BaseTypeClass
     {
         return strval(parent::GetData());
     }
-    
+    private function FormatedLongCurrency($value, $fractional_length, $decimal_mark)
+    {
+        if($value >= 0) {
+            $formatter = '%1$0' . intval($fractional_length + 1) . 'd';
+        }
+        else {
+            $formatter = '%1$0' . intval( $fractional_length + 2 ) . 'd';
+        }
+        $str = sprintf($formatter, $value);
+        $str = strrev($str);
+        $right_part = substr($str, 0, $fractional_length);
+        $left_part = substr($str, $fractional_length);
+        $str = $right_part . $decimal_mark . $left_part;
+        $str = strrev($str);
+        return $str;
+    }
+
+    public function GetFormattedCurrencyString($currency, $include_currency_text=false, $decimal_mark=',')
+    {
+        if($this->HasValidData())
+        {
+            $value = $this->GetInt();
+
+            if($currency == 'BTC')
+            {
+                $str = $this->FormatedLongCurrency($value, 8, $decimal_mark);
+                if($include_currency_text)
+                {
+                    $str .= ' BTC';
+                }
+            }
+            elseif($currency == 'mBTC')
+            {
+                $str = $this->FormatedLongCurrency($value, 5, $decimal_mark);
+                if($include_currency_text)
+                {
+                    $str .= ' mBTC';
+                }
+            }
+            elseif($currency == 'uBTC')
+            {
+                $str = $this->FormatedLongCurrency($value, 2, $decimal_mark);
+                if($include_currency_text)
+                {
+                    $str .= ' uBTC';
+                }
+            }
+            else
+            {
+                $str = 'Error: Unknown currency';
+            }
+        }
+        else
+        {
+            $str = 'No data.';
+        }
+
+        return $str;
+    }
 }
 function SanitizeAmount($amount)
 {
