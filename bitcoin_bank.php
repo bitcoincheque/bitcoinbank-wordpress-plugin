@@ -502,7 +502,11 @@ function ListUserCheques()
             $html_table2->AddLineItem($cheque->GetDescription()->GetString());
             $html_table2->RowFeed();
 
-            $output = '<h3>Details for Cheque No. ' . strval($cheque_id_val) . '</h3>';
+            $png_url = site_url() . '/wp-admin/admin-ajax.php?action=bcf_bitcoinbank_get_cheque_png&cheque_no='. strval($cheque_id_val);
+
+            $output = '<a href="'.$png_url.'"><img src="'. $png_url . '" height="300" width="800" alt="Loading cheque image..."/></a>';
+            $output .= '<br>';
+            $output .= '<h3>Details for Cheque No. ' . strval($cheque_id_val) . '</h3>';
             $output .= '<b>Public data:</b><br>This information is included in cheque and sent to cheque receiver.';
             $output .= $html_table->GetHtmlTable();
             $output .= '<b>Private data:</b><br>Information not included in the cheque.';
@@ -581,32 +585,334 @@ function ListUserCheques()
     return $output;
 }
 
-function TestCheque()
+function DrawCheque()
 {
     if (is_user_logged_in())
     {
-        $cheque_handler = new ChequeHandlerClass();
+        $user_handler = new UserHandlerClass();
+        $currency = 'uBTC';
 
-        $account_id       = new AccountIdTypeClass(3);
-        $account_password = new PasswordTypeClass("abc123");
-        $amount           = new ValueTypeClass(7);
-
-        $output      = "Issue cheque...";
-        $reference   = new TextTypeClass('12fd4d');
-        $expire_seconds = 60;
-        $escrow_seconds = 3600;
-        
-        $cheque = $cheque_handler->IssueCheque( $account_id, $account_password, $amount, $expire_seconds, $escrow_seconds, $reference );
-
-        if(is_null($cheque))
+        if( !empty($_REQUEST['select_account'])
+            and !empty($_REQUEST['amount'])
+            and !empty($_REQUEST['expired_days'])
+        )
         {
-            $output .= 'Failed' . '<br>';
+            $selected_account_int = SanitizeInputInteger($_REQUEST['select_account']);
+
+            if(!empty($_REQUEST['receiver_name']))
+            {
+                $receiver_name_str = SanitizeInputText($_REQUEST['receiver_name']);
+            }
+            else
+            {
+                $receiver_name_str = '';
+            }
+
+            if(!empty($_REQUEST['receiver_email']))
+            {
+                $receiver_email_str = SanitizeInputText($_REQUEST['receiver_email']);
+            }
+            else
+            {
+                $receiver_email_str = '';
+            }
+
+
+            $amount_int = SanitizeInputInteger($_REQUEST['amount']);
+
+            $expire_days = SanitizeInputInteger($_REQUEST['expired_days']);
+
+            if(!empty($_REQUEST['memo']))
+            {
+                $memo_str = SanitizeInputText($_REQUEST['memo']);
+            }
+            else
+            {
+                $memo_str = '';
+            }
+
+            $account_id = new AccountIdTypeClass($selected_account_int);
+            $amount = new ValueTypeClass($amount_int);
+            $receiver_name = new NameTypeClass($receiver_name_str);
+            $lock_address = new TextTypeClass($receiver_email_str);
+            $expire_seconds = $expire_days * 24 * 3600;
+            $escrow_seconds = 0;
+            $memo = new TextTypeClass($memo_str);
+
+            $cheque = $user_handler->IssueCheque($account_id, $amount, $expire_seconds, $escrow_seconds, $receiver_name, $lock_address, $memo);
+            $cheque_id_str = $cheque->GetChequeId()->GetString();
+
+            $png_url = site_url() . '/wp-admin/admin-ajax.php?action=bcf_bitcoinbank_get_cheque_png&cheque_no='. $cheque_id_str;
+
+            $output = '<a href="'.$png_url.'"><img src="'. $png_url . '" height="300" width="800" alt="Loading cheque image..."/></a>';
+            $output .= '<br>';
+            $output .= '<h3>Send cheque to the receiver</h3>';
+            $output .= '<b>Let us send the cheque by e-mail</b>';
+
+            $output .= '<form name="bcf_withdraw_form">';
+            $output .= '<table style="border-style:none;" width="100%"><tr>';
+            $output .= '<tr>';
+            $output .= '<td style="border-style:none;">Send to email * :</td><td style="border-style:none;"><input type="text" value="'.$receiver_email_str.'" name="send_email" /></td>';
+            $output .= '</tr><tr>';
+            $output .= '<td style="border-style:none;">Personal message to receiver added in the e-mail:</td><td style="border-style:none;"><textarea rows="4" cols="50" name="message">I send you this cheque. You must follow the link below in order to claim it.</textarea></td>';
+            $output .= '</tr><tr>';
+            $output .= '<td style="border-style:none;">Copy to you:</td><td style="border-style:none;"><input type="text" value="" name="copy_email" /></td>';
+            $output .= '</tr><tr>';
+            $output .= '<td style="border-style:none;"></td><td style="border-style:none;"><a href="withdraw"><input type="submit" value="Send e-mail"></td>';
+            $output .= '</tr></table>';
+            $output .= '<input type="hidden" name="cheque_id" value="'.$cheque_id_str.'">';
+            $output .= '<input type="hidden" name="receiver_name" value="'.$receiver_name_str.'">';
+            $output .= '</form>';
+            $output .= '* Required information.';
+            $output .= '<br>';
+            $output .= '<br>';
+            $output .= '<b>Or copy the below and send it yourself</b>';
+
+        }
+        else if( !empty($_REQUEST['send_email'])
+            and !empty($_REQUEST['cheque_id']))
+        {
+            $send_email_str = SanitizeInputText($_REQUEST['send_email']);
+            $cheque_id_str = SanitizeInputText($_REQUEST['cheque_id']);
+
+            if(!empty($_REQUEST['message']))
+            {
+                $message = SanitizeInputText($_REQUEST['message']);
+            }
+            else
+            {
+                $message = '';
+            }
+
+            if(!empty($_REQUEST['receiver_name_str']))
+            {
+                $receiver_name_str = SanitizeInputText($_REQUEST['receiver_name_str']);
+            }
+            else
+            {
+                $receiver_name_str = '';
+            }
+
+            $code = '123';
+            $hash = 'n73ywf43t';
+
+            $png_url = site_url() . '/wp-admin/admin-ajax.php?action=bcf_bitcoinbank_get_cheque_png&cheque_no='. $cheque_id_str;
+            $collect_url = site_url() . '/index.php/claim-cheque/?cheque_no='. $cheque_id_str . '&code=' . $code . '&hash=' . $hash;
+
+            $body = '<p></p><b>Hello';
+            if($message)
+            {
+                $body .= $receiver_name_str;
+            }
+            $body .= ',</b></p>';
+            if($message)
+            {
+                $body .= '<p>' . $message . '</p>';
+                $body .= '<p>To collect the money click on the cheque picture or copy the link below into your web browser.</p>';
+            }
+            else
+            {
+                $body .= '<p>You have received a Bitcoin Cheque. To collect the money click on the cheque picture or copy the link below into your web browser.</p>';
+            }
+
+            $body .= '<p><a href="'.$collect_url.'"><img src="'. $png_url . '" height="300" width="800" alt="Loading cheque image..."/></a></p>';
+
+            $body .= '<p><a href="'.$collect_url.'">' . $collect_url . '</a></p>';
+
+            $body .= '<p>This Bitcoin Cheque has been issued by</p>';
+
+            $body .= '<p><b>What is Bitcoin?</b><br>Bitcoin is a consensus network that enables a new payment system and a completely digital money. It is the first decentralized peer-to-peer payment network that is powered by its users with no central authority or middlemen. From a user perspective, Bitcoin is pretty much like cash for the Internet.</p>';
+            $body .= '<p><b>What is Bitcoin Cheques?</b><br>A Bitcoin Cheque is a new method for sending Bitcoins. The Bitcoin Cheque is a promiss that the issuing bank will pay a certain amount to a receiver. You can read more about Bitcoin Cheque here at <a href="http://www.bitcoincheque.org">www.bitcoincheque.org</a></p>';
+
+            $subject = 'You have received a Bitcoin Cheque';
+
+            $headers = array('Content-Type: text/html; charset=UTF-8');
+
+            if(wp_mail($send_email_str, $subject, $body, $headers))
+            {
+                $output = 'E-mail successfully sent to ' . $send_email_str;
+            }
+            else
+            {
+                $output = 'Error. Could not send e-mail.';
+            }
         }
         else
         {
-            $output .= 'OK' . '<br><br>Cheque:<br>';
-            $output .= $cheque->GetJson() . '<br>';
+            $account_selected = null;
+
+            $account_data_list = $user_handler->GetAccountInfoListCurrentUser();
+
+            $output = '<form name="bcf_withdraw_form">';
+            $output .= '<table style="border-style:none;" width="100%"><tr>';
+            $output .= '<td style="border-style:none;" width="30%">From my account:</td>';
+
+            $output .= '<td style="border-style:none;">';
+
+            $output .= MakeHtmlSelectOptions($user_handler, $account_data_list, $account_selected, $currency);
+
+            $output .= '</td>';
+
+            $output .= '</tr><tr>';
+            $output .= '<td style="border-style:none;">Name of receiver:</td><td style="border-style:none;"><input type="text" value="" id="bcf_bitcoinbank_deposit_account" name="receiver_name" /></td>';
+            $output .= '</tr><tr>';
+            $output .= '<td style="border-style:none;">Receiver\'s e-mail:</td><td style="border-style:none;"><input type="text" id="bcf_bitcoinbank_withdraw_amount" name="receiver_email" /></td>';
+            $output .= '</tr><tr>';
+            $output .= '<td style="border-style:none;">Amount * :</td><td style="border-style:none;"><input type="text" id="bcf_bitcoinbank_withdraw_amount" name="amount" /></td>';
+            $output .= '</tr><tr>';
+            $output .= '<td style="border-style:none;">Expired in days * :</td><td style="border-style:none;"><input type="text" id="bcf_bitcoinbank_withdraw_amount" name="expired_days" value="2"/></td>';
+            $output .= '</tr><tr>';
+            $output .= '<td style="border-style:none;">Memo:</td><td style="border-style:none;"><input type="text" id="bcf_bitcoinbank_withdraw_amount" name="memo" /></td>';
+            $output .= '</tr><tr>';
+            $output .= '<td style="border-style:none;"></td><td style="border-style:none;"><a href="withdraw"><input type="submit" value="Create cheque"/></a></td>';
+            $output .= '</tr></table>';
+            $output .= '</form>';
+            $output .= '* Required information.';
+            $output .= '<br>';
         }
+
+    }
+    else
+    {
+        $output = 'You must be logged in to draw cheques.';
+    }
+
+    return $output;
+}
+
+function ClaimCheque()
+{
+    if( !empty($_REQUEST['cheque_no'])
+    and !empty($_REQUEST['code'])
+    and !empty($_REQUEST['hash']))
+    {
+        $cheque_no_val = SanitizeInputInteger($_REQUEST['cheque_no']);
+        $code = SanitizeInputText($_REQUEST['code']);
+        $hash = SanitizeInputText($_REQUEST['hash']);
+
+        $png_url = site_url() . '/wp-admin/admin-ajax.php?action=bcf_bitcoinbank_get_cheque_png&cheque_no='. strval($cheque_no_val);
+
+        $output = '<a href="'.$png_url.'"><img src="'. $png_url . '" height="300" width="800" alt="Loading cheque image..."/></a>';
+        $output .= '<br>';
+        $output .= '<h3>This check is unclaimed</h3>';
+
+    }
+    else
+    {
+        $output = '<h3>Enter cheque details</h3>';
+    }
+
+    return $output;
+}
+
+function ProcessAjaxCreatePngCheque()
+{
+    $currency = 'BTC';
+
+    if ( ! empty( $_REQUEST['cheque_no'] ) )
+    {
+        $cheque_id_val = SanitizeInputInteger($_REQUEST['cheque_no']);
+        $cheque_id = new ChequeIdTypeClass($cheque_id_val);
+
+        $user_handler = new UserHandlerClass();
+        $cheque = $user_handler->GetCheque($cheque_id);
+        $code = $cheque->GetNounce()->GetString();
+
+        if(!is_null($cheque))
+        {
+            header("Content-type: image/png");
+
+            $filename = plugin_dir_path(__FILE__) . 'bank_logo.png';
+
+            $filename = plugin_dir_path(__FILE__) . 'cheque_template2.png';
+
+            $im = imagecreatefrompng($filename);
+
+            $black = imagecolorallocate($im, 0, 0, 0);
+
+            //imagestring($im, 10, 20, 20, 'Bitcoin Demo Bank', $black);
+            //imagestring($im, 10, 20, 40, 'www.bitcoindemobank.com', $black);
+
+            imagestring($im, 10, 20, 100, 'Pay to : ' . $cheque->GetReceiverName()->GetString(), $black);
+            imagestring($im, 10, 20, 120, 'Locked : ' . $cheque->GetReceiverWallet()->GetString(), $black);
+            imagestring($im, 10, 20, 160, 'Paid by: ' . $cheque->GetUserName()->GetString(), $black);
+            imagestring($im, 10, 20, 140, 'Memo   : ' . $cheque->GetReceiverReference()->GetString(), $black);
+
+            imagestring($im, 10, 520, 125, $cheque->GetValue()->GetFormattedCurrencyString($currency, true), $black);
+
+            imagestring($im, 10, 490, 170, 'Issue  date: ' . $cheque->GetIssueDateTime()->GetString(), $black);
+            imagestring($im, 10, 490, 190, 'Expire date: ' . $cheque->GetExpireDateTime()->GetString(), $black);
+            imagestring($im, 10, 490, 210, 'Escrow date: ' . $cheque->GetEscrowDateTime()->GetString(), $black);
+
+            imagestring($im, 10, 20, 275, 'Cheque no.:' . $cheque_id_val . '  Code:' . $code . '  Hash:78fhjrf7y49rfherf67y', $black);
+
+            imagepng($im);
+
+            imagedestroy($im);
+        }
+        else
+        {
+            echo 'Invalid cheque';
+        }
+    }
+}
+
+function UserProfile()
+{
+    if (is_user_logged_in())
+    {
+        $save_result = false;
+        $data_has_been_saved = false;
+        $user_handler = new UserHandlerClass();
+
+        if( isset($_REQUEST['full_name'])
+        and isset($_REQUEST['country'])
+        )
+        {
+            $name = $_REQUEST['full_name'];
+            $country = $_REQUEST['country'];
+
+            $save_result = $user_handler->SetCurrentUserData($name, $country);
+            $data_has_been_saved = true;
+        }
+        else
+        {
+            $user_data = $user_handler->GetCurrentUserData();
+            $name = $user_data->GetName()->GetString();
+            $country = $user_data->GetCountry()->GetString();
+        }
+
+        $current_user = wp_get_current_user();
+
+        $output = '<form name="bcf_profile_form">';
+        $output .= '<table style="border-style:none;" width="100%"><tr>';
+        $output .= '<td style="border-style:none;">Login username:</td><td style="border-style:none;"><input type="text" value="' .  $current_user->user_login . '" readonly="readonly" /></td><td style="border-style:none;"><i>Cannot be changed.</i></td>';
+        $output .= '</tr><tr>';
+        $output .= '<td style="border-style:none;">Name:</td><td style="border-style:none;"><input type="text" value="' . $name . '" name="full_name" /></td><td style="border-style:none;"><i>Name will be included in cheques in the Paid By field.</i></td>';
+        $output .= '</tr><tr>';
+        $output .= '<td style="border-style:none;">Country:</td><td style="border-style:none;"><input type="text" value="' . $country . '" name="country" /></td><td style="border-style:none;"><i>Optional.</i></td>';
+        $output .= '</tr><tr>';
+        $output .= '<td style="border-style:none;"></td><td style="border-style:none;"><a href=""><input type="submit" value="Save"/></a></td><td style="border-style:none;"></td>';
+        $output .= '</tr></table>';
+        $output .= '</form>';
+
+        $output .= '<br>';
+
+        if($data_has_been_saved)
+        {
+            if($save_result)
+            {
+                $output .= '<font color="green"><b>User data successfully saved.</b></font>';
+            }
+            else
+            {
+                $output .= '<font color="red">><b>Error saving user data.</b></font>';
+            }
+        }
+    }
+    else
+    {
+        $output = 'You must log in to access profile info.';
     }
 
     return $output;
@@ -628,7 +934,6 @@ function DeactivatePlugin()
 {
 }
 
-
 /* Add AJAX handlers */
 // Note! Need to have both actions below, "nopriv" and other! Otherwise wordpress will not return json object.
 
@@ -639,11 +944,17 @@ add_action('wp_ajax_bcf_bitcoinbank_process_ajax_request_cheque', 'BCF_BitcoinBa
 add_action('wp_ajax_nopriv_bcf_bitcoinbank_process_ajax_validate_cheque', 'BCF_BitcoinBank\ProcessAjaxValidateCheque');
 add_action('wp_ajax_bcf_bitcoinbank_process_ajax_validate_cheque', 'BCF_BitcoinBank\ProcessAjaxValidateCheque');
 
+// Can be tested i browser: /wp-admin/admin-ajax.php?action=bcf_bitcoinbank_get_cheque_png
+add_action('wp_ajax_nopriv_bcf_bitcoinbank_get_cheque_png', 'BCF_BitcoinBank\ProcessAjaxCreatePngCheque');
+add_action('wp_ajax_bcf_bitcoinbank_get_cheque_png', 'BCF_BitcoinBank\ProcessAjaxCreatePngCheque');
+
 /* Add shortcodes */
 add_shortcode('bcf_bitcoinbank_list_user_transactions', 'BCF_BitcoinBank\ListUserTransactions');
 add_shortcode('bcf_bitcoinbank_withdraw', 'BCF_BitcoinBank\Withdraw');
 add_shortcode('bcf_bitcoinbank_list_user_cheques', 'BCF_BitcoinBank\ListUserCheques');
-add_shortcode('bcf_bitcoinbank_test_cheque', 'BCF_BitcoinBank\TestCheque');
+add_shortcode('bcf_bitcoinbank_draw_cheque', 'BCF_BitcoinBank\DrawCheque');
+add_shortcode('bcf_bitcoinbank_claim_cheque', 'BCF_BitcoinBank\ClaimCheque');
+add_shortcode('bcf_bitcoinbank_profile', 'BCF_BitcoinBank\UserProfile');
 
 register_activation_hook(__FILE__, 'BCF_BitcoinBank\ActivatePlugin');
 register_deactivation_hook(__FILE__, 'BCF_BitcoinBank\DeactivatePlugin');

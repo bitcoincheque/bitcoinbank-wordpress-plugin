@@ -37,6 +37,7 @@ class UserDataClass extends DataBaseClass
     const DB_FIELD_USER_ID = 'user_id';
     const DB_FIELD_WP_USER_ID = 'wp_user';
     const DB_FIELD_NAME = 'name';
+    const DB_FIELD_COUNTRY = 'country';
 
     /* Metadata describing database fields and data properties: */
     protected $MetaData = array
@@ -54,8 +55,14 @@ class UserDataClass extends DataBaseClass
             'default_value' => 0
         ),
         self::DB_FIELD_NAME => array(
-            'class_type'    => 'TextTypeClass',
+            'class_type'    => 'NameTypeClass',
             'db_field_name' => self::DB_FIELD_NAME,
+            'db_primary_key'=> false,
+            'default_value' => ''
+        ),
+        self::DB_FIELD_COUNTRY => array(
+            'class_type'    => 'TextTypeClass',
+            'db_field_name' => self::DB_FIELD_COUNTRY,
             'db_primary_key'=> false,
             'default_value' => ''
         )
@@ -104,7 +111,7 @@ class UserDataClass extends DataBaseClass
     {
         $result = false;
 
-        if(SanitizeText($name))
+        if(SanitizeName($name))
         {
             $result = $this->SetDataObject(self::DB_FIELD_NAME, $name);
         }
@@ -116,6 +123,24 @@ class UserDataClass extends DataBaseClass
     {
         return $this->GetDataObjects(self::DB_FIELD_NAME);
     }
+
+    public function SetCountry($country)
+    {
+        $result = false;
+
+        if(SanitizeText($country))
+        {
+            $result = $this->SetDataObject(self::DB_FIELD_COUNTRY, $country);
+        }
+
+        return $result;
+    }
+
+    public function GetCountry()
+    {
+        return $this->GetDataObjects(self::DB_FIELD_COUNTRY);
+    }
+
 }
 
 function SanitizeBankUserData($bank_user)

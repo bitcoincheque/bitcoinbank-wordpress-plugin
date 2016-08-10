@@ -227,4 +227,100 @@ class UserHandlerClass extends AccountingClass
         return $result;
     }
 
+    public function IssueCheque($issuer_account_id, $amount, $expire_seconds, $escrow_seconds, $receiver_name, $lock_address, $reference)
+    {
+        $cheque =null;
+
+        if(SanitizeAccountId($issuer_account_id)
+        and SanitizeAmount($amount)
+        and SanitizePositiveInteger($expire_seconds)
+        and SanitizePositiveIntegerOrZero($escrow_seconds)
+        and SanitizeName($receiver_name)
+        and SanitizeText($lock_address)
+        and SanitizeText($reference)
+        )
+        {
+            if($this->IsCurrentUserAccountOwner($issuer_account_id))
+            {
+                $bank_user_id = $this->GetAccountOwner($issuer_account_id);
+
+                $bank_user_data = $this->DB_GetBankUserData($bank_user_id);
+                $user_name = $bank_user_data->GetName();
+
+                $account_data = $this->GetAccountData($issuer_account_id);
+                if(!is_null($account_data))
+                {
+                    $issue_datetime = $this->DB_GetCurrentTimeStamp();
+                    $cheque_account_id = $this->GetChequeEscrollAccount();
+                    $debit_transaction_type = new TransactionDirTypeClass('ADD');
+                    $credit_transaction_type = new TransactionDirTypeClass('CHEQUE');
+
+                    $transaction_id = $this->MakeTransaction($issuer_account_id, $cheque_account_id, $issue_datetime, $amount, $credit_transaction_type, $debit_transaction_type);
+
+                    if(!is_null($transaction_id))
+                    {
+                        $expire_datetime = new DateTimeTypeClass($issue_datetime->GetSeconds() + $expire_seconds);
+                        $escrow_datetime = new DateTimeTypeClass($issue_datetime->GetSeconds() + $escrow_seconds);
+
+                        $cheque = $this->CreateCheque(
+                            $issuer_account_id,
+                            $issue_datetime,
+                            $expire_datetime,
+                            $escrow_datetime,
+                            $amount,
+                            $reference,
+                            $receiver_name,
+                            null,
+                            null,
+                            null,
+                            null,
+                            null,
+                            $lock_address,
+                            null,
+                            $user_name);
+
+                        if(is_null($cheque))
+                        {
+                            /* TODO Failed to create cheque, maybe need to clean up transaction */
+                        }
+                    }
+                }
+            }
+        }
+
+        return $cheque;
+    }
+
+    public function SetCurrentUserData($name_str, $country_str)
+    {
+        $result = false;
+
+        if(is_user_logged_in())
+        {
+            $name = new NameTypeClass($name_str);
+            $country = new TextTypeClass($country_str);
+            
+            $current_user = wp_get_current_user();
+            $wp_user_id = new WpUserIdTypeClass($current_user->ID);
+            $bank_user_id = $this->GetBankUserIdFromWpUser($wp_user_id);
+            
+            $result = $this->SetBankUserData($bank_user_id, $name, $country);
+        }
+
+        return $result;
+    }
+
+    public function GetCurrentUserData()
+    {
+        $bank_user_data = null;
+
+        if(is_user_logged_in())
+        {
+            $current_user = wp_get_current_user();
+            $wp_user = new WpUserIdTypeClass($current_user->ID);
+            $bank_user_data = $this->GetBankUserDataFromWpUser($wp_user);
+        }
+
+        return $bank_user_data;
+    }
 }

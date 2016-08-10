@@ -88,6 +88,27 @@ class AccountingClass extends DatabaseInterfaceClass
 
         return $bank_user_data;
     }
+    protected function SetBankUserData($bank_user_id, $name, $country)
+    {
+        $result = false; 
+        
+        if(SanitizeBankUserId($bank_user_id)
+           and SanitizeName($name)
+               and SanitizeText($country))
+        {
+            $bank_user_data = $this->DB_GetBankUserData($bank_user_id);
+
+            $bank_user_data->SetName($name);
+            $bank_user_data->SetCountry($country);
+            
+            if($this->DB_UpdateRecord($bank_user_data))
+            {
+                $result = true;
+            }
+        }
+        
+        return $result;
+    }
 
     protected function CreateBankUser($wp_user_id, $name)
     {
@@ -424,7 +445,8 @@ class AccountingClass extends DatabaseInterfaceClass
         $business_no,
         $reg_country,
         $receiver_wallet,
-        $description)
+        $description,
+        $user_name)
     {
         $cheque = null;
 
@@ -433,16 +455,46 @@ class AccountingClass extends DatabaseInterfaceClass
             and SanitizeDateTime($expire_datetime)
             and SanitizeDateTime($escrow_datetime)
             and SanitizeAmount($amount)
-            and SanitizeText($reference)
-            and SanitizeName($receiver_name)
-            and SanitizeText($receiver_address)
-            and SanitizeText($receiver_url)
-            and SanitizeText($receiver_email)
-            and SanitizeText($business_no)
-            and SanitizeText($reg_country)
-            and SanitizeText($receiver_wallet)
-            and SanitizeText($description))
+            and SanitizeText($receiver_wallet))
         {
+            /* Optional field, set to null if not used */
+            if (!is_null($reference) and !SanitizeText($reference))
+            {
+                return $cheque;
+            }
+            if (!is_null($receiver_name) and !SanitizeName($receiver_name))
+            {
+                return $cheque;
+            }
+            if (!is_null($receiver_address) and !SanitizeText($receiver_address))
+            {
+                return $cheque;
+            }
+            if  (!is_null($receiver_url) and !SanitizeText($receiver_url))
+            {
+                return $cheque;
+            }
+            if (!is_null($receiver_email) and !SanitizeText($receiver_email))
+            {
+                return $cheque;
+            }
+            if (!is_null($business_no) and !SanitizeText($business_no))
+            {
+                return $cheque;
+            }
+            if (!is_null($reg_country) and !SanitizeText($reg_country))
+            {
+                return $cheque;
+            }
+            if  (!is_null($description) and !SanitizeText($description))
+            {
+                return $cheque;
+            }
+            if  (!is_null($user_name) and !SanitizeName($user_name))
+            {
+                return $cheque;
+            }
+
             if ($amount->GetInt() > 0)
             {
                 $r1 = rand(1, PHP_INT_MAX - 1);
@@ -471,6 +523,7 @@ class AccountingClass extends DatabaseInterfaceClass
                 $cheque->SetReceiverRegCountry($reg_country);
                 $cheque->SetReceiverWallet($receiver_wallet);
                 $cheque->SetDescription($description);
+                $cheque->SetUserName($user_name);
 
                 $collect_url_str = site_url() . '/wp-admin/admin-ajax.php?action=bcf_bitcoinbank_process_ajax_validate_cheque';
                 $collect_url = new TextTypeClass($collect_url_str);
