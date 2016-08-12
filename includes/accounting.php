@@ -513,7 +513,7 @@ class AccountingClass extends DatabaseInterfaceClass
                 $cheque->SetEscrowDateTime($escrow_datetime);
                 $cheque->SetValue($amount);
                 $cheque->SetReceiverReference($reference);
-                $cheque->SetNounce($secret_token);
+                $cheque->SetAccessCode($secret_token);
                 $cheque->SetOwnerAccountId($issuer_account_id);
                 $cheque->SetReceiverName($receiver_name);
                 $cheque->SetReceiverAddress($receiver_address);
@@ -567,13 +567,20 @@ class AccountingClass extends DatabaseInterfaceClass
     }
     */
 
-    public function GetCheque($cheque_id)
+    public function GetCheque($cheque_id, $access_code)
     {
         $cheque = null;
             
-        if(SanitizeChequeId($cheque_id))
+        if(SanitizeChequeId($cheque_id) and SanitizeText($access_code))
         {
             $cheque = $this->DB_GetChequeData($cheque_id);
+
+            $access_code_test = $cheque->GetAccessCode();
+
+            if($access_code->GetString() != $access_code_test->GetString())
+            {
+                $cheque = null;
+            }
         }
         
         return $cheque;

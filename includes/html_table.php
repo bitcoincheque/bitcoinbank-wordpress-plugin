@@ -48,11 +48,13 @@ Class TableCellClass
 {
     private $Text;
     private $Link;
+    private $Style;
 
-    public function __construct($text, $link)
+    public function __construct($text, $link, $style)
     {
         $this->Text = $text;
         $this->Link = $link;
+        $this->Style = $style;
     }
 
     public function GetText()
@@ -64,6 +66,11 @@ Class TableCellClass
     {
         return $this->Link;
     }
+
+    public function GetStyle()
+    {
+        return $this->Style;
+    }
 }
 
 class HtmlTableClass
@@ -71,9 +78,9 @@ class HtmlTableClass
     private $table_rows = array();
     private $current_line = array();
 
-    public function AddLineItem($text, $link='')
+    public function AddLineItem($text, $link='', $style='')
     {
-        $cell_item = new TableCellClass($text, $link);
+        $cell_item = new TableCellClass($text, $link, $style);
         $this->current_line[] = $cell_item;
     }
 
@@ -84,9 +91,14 @@ class HtmlTableClass
         $this->current_line = array();
     }
     
-    public function GetHtmlTable()
+    public function GetHtmlTable($style = '')
     {
-        $html = '<table>';
+        $html = '<table';
+        if($style != '')
+        {
+            $html .= ' ' . $style;
+        }
+        $html .= '>';
 
         foreach($this->table_rows as $row)
         {
@@ -95,8 +107,14 @@ class HtmlTableClass
             {
                 $item_text = $cell_item->GetText();
                 $item_link = $cell_item->GetLink();
+                $cell_style = $cell_item->GetStyle();
 
-                $html .= '<td>';
+                $html .= '<td';
+                if($cell_style != '')
+                {
+                    $html .= ' ' . $cell_style;
+                }
+                $html .= '>';
 
                 if($item_link != '')
                 {

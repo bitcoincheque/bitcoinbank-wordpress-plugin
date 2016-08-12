@@ -37,7 +37,7 @@ class ChequeDataClass extends DataBaseClass
     const DB_FIELD_CHEQUE_ID = 'cheque_id';
     const DB_FIELD_ISSUER_NAME = 'issuer_name';
     const DB_FIELD_ISSUER_ADDRESS = 'issuer_address';
-    const DB_FIELD_NOUNCE = 'nounce';
+    const DB_FIELD_ACCESS_CODE = 'access_code';
     const DB_FIELD_VALUE = 'amount';
     const DB_FIELD_CURRENCY = 'currency';
     const DB_FIELD_FIXED_FEE = 'fixed_fee';
@@ -71,7 +71,7 @@ class ChequeDataClass extends DataBaseClass
             'default_value' => 0,
             'public_data'   => true
         ),
-        self::DB_FIELD_ISSUER_NAME => array(
+        self::DB_FIELD_ISSUER_NAME    => array(
             'class_type'    => 'NameTypeClass',
             'db_field_name' => self::DB_FIELD_ISSUER_NAME,
             'db_primary_key'=> false,
@@ -85,21 +85,21 @@ class ChequeDataClass extends DataBaseClass
             'default_value' => '',
             'public_data'   => true
         ),
-        self::DB_FIELD_NOUNCE => array(
+        self::DB_FIELD_ACCESS_CODE    => array(
             'class_type'    => 'TextTypeClass',
-            'db_field_name' => self::DB_FIELD_NOUNCE,
+            'db_field_name' => self::DB_FIELD_ACCESS_CODE,
             'db_primary_key'=> false,
             'default_value' => '',
             'public_data'   => true
         ),
-        self::DB_FIELD_VALUE => array(
+        self::DB_FIELD_VALUE          => array(
             'class_type'    => 'ValueTypeClass',
             'db_field_name' => self::DB_FIELD_VALUE,
             'db_primary_key'=> false,
             'default_value' => 0,
             'public_data'   => true
         ),
-        self::DB_FIELD_CURRENCY => array(
+        self::DB_FIELD_CURRENCY       => array(
             'class_type'    => 'TextTypeClass',
             'db_field_name' => self::DB_FIELD_CURRENCY,
             'db_primary_key'=> false,
@@ -311,18 +311,18 @@ class ChequeDataClass extends DataBaseClass
         return $result;
     }
 
-    public function GetNounce()
+    public function GetAccessCode()
     {
-        return $this->GetDataObjects(self::DB_FIELD_NOUNCE);
+        return $this->GetDataObjects(self::DB_FIELD_ACCESS_CODE);
     }
 
-    public function SetNounce($nounce)
+    public function SetAccessCode($access_code)
     {
         $result = false;
 
-        if(SanitizeText($nounce))
+        if(SanitizeText($access_code))
         {
-            $result = $this->SetDataObject(self::DB_FIELD_NOUNCE, $nounce);
+            $result = $this->SetDataObject(self::DB_FIELD_ACCESS_CODE, $access_code);
         }
 
         return $result;
