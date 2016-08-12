@@ -9,7 +9,7 @@
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as
- * published by the Free Software Foundation, either version 3 of the 
+ * published by the Free Software Foundation, either version 3 of the
  * License, or (at your option) any later version.
  *
  * This program is distributed in the hope that it will be useful,
@@ -493,7 +493,7 @@ function ChequeDetails()
             $html_table->AddLineItem($cheque->GetUserAddress()->GetString());
             $html_table->RowFeed();
 
-            $html_table->AddLineItem('Secret token:');
+            $html_table->AddLineItem('Access Code:');
             $html_table->AddLineItem($cheque->GetAccessCode()->GetString());
             $html_table->RowFeed();
 
@@ -731,7 +731,8 @@ function DrawCheque()
                 }
 
                 $png_url     = site_url() . '/wp-admin/admin-ajax.php?action=bcf_bitcoinbank_get_cheque_png&cheque_no=' . $cheque_id_val . '&access_code=' . $access_code_str;
-                $collect_url = site_url() . '/index.php/claim-cheque/?cheque_no=' . $cheque_id_val . '&access_code=' . $access_code_str;
+                $claim_url   = site_url() . '/index.php/claim-cheque/';
+                $collect_url = $claim_url . '?cheque_no=' . $cheque_id_val . '&access_code=' . $access_code_str;
 
                 $body = '<p></p><b>Hello';
                 if($message)
@@ -752,6 +753,11 @@ function DrawCheque()
                 $body .= '<p><a href="' . $collect_url . '"><img src="' . $png_url . '" height="300" width="800" alt="Loading cheque image..."/></a></p>';
 
                 $body .= '<p><a href="' . $collect_url . '">' . $collect_url . '</a></p>';
+
+                $body .= '<p>Or you can click on this link and enter the Cheque No. and Access Code:</p>';
+                $body .= '<p><a href="' . $claim_url . '">' . $claim_url . '</a></p>';
+                $body .= 'Cheque No.: ' . $cheque_id_val;
+                $body .= '<br>Access Code.: ' . $access_code_str;
 
                 $body .= '<p>This Bitcoin Cheque has been issued by</p>';
 
@@ -824,19 +830,177 @@ function ClaimCheque()
     if( !empty($_REQUEST['cheque_no'])
     and !empty($_REQUEST['access_code']))
     {
-        $cheque_no_val = SanitizeInputInteger($_REQUEST['cheque_no']);
-        $access_code = SanitizeInputText($_REQUEST['access_code']);
+        $cheque_id_val = SanitizeInputInteger($_REQUEST['cheque_no']);
+        $access_code_str = SanitizeInputText($_REQUEST['access_code']);
 
-        $png_url = site_url() . '/wp-admin/admin-ajax.php?action=bcf_bitcoinbank_get_cheque_png&cheque_no='. strval($cheque_no_val) . '&access_code=' . $access_code;
+        $png_url = site_url() . '/wp-admin/admin-ajax.php?action=bcf_bitcoinbank_get_cheque_png&cheque_no='. strval($cheque_id_val) . '&access_code=' . $access_code_str;
 
         $output = '<a href="'.$png_url.'"><img src="'. $png_url . '" height="300" width="800" alt="Loading cheque image..."/></a>';
-        $output .= '<br>';
-        $output .= '<h3>This check is unclaimed</h3>';
+        $output .= '<p>';
 
+        $cheque_id   = new ChequeIdTypeClass($cheque_id_val);
+        $access_code = new TextTypeClass($access_code_str);
+
+        $user_handler = new UserHandlerClass();
+        $cheque = $user_handler->GetCheque($cheque_id, $access_code);
+
+        if($cheque != null)
+        {
+            $cheque_state = $cheque->GetChequeState();
+
+            if($cheque_state->GetString() == 'UNCLAIMED')
+            {
+                $locked_address = $cheque->GetReceiverWallet()->GetString();
+                $bitcoin_address_readonly = '';
+                if(preg_match('/[@]/', $locked_address))
+                {
+                    /* Lock address is an e-mail */
+                    $lock_type ='email';
+                    $lock_email = $locked_address;
+                    $lock_bitcoin_address = '';
+                }
+                else
+                {
+                    /* Lock address is wallet address */
+                    $lock_type ='bitcoin_address';
+                    $lock_bitcoin_address          = $locked_address;
+                    $bitcoin_address_readonly = ' readonly="readonly"';
+                }
+
+                if( empty($_REQUEST['bitcoin_address']))
+                {
+                    $output .= '<h3>Status: This check is unclaimed</h3>';
+
+                    if($lock_type == 'bitcoin_address')
+                    {
+                        $output .= 'This cheque drawer has locked this cheque to a specific bitcoin wallet address. You are not allowed to change this address.';
+                    }
+                    elseif(($lock_type == 'email'))
+                    {
+                        $output .= 'Enter the bitcoin address to transfere money to.';
+                    }
+                    $output .= '<form name="bcf_profile_form">';
+                    $output .= '<table style="border-style:none;" width="100%"><tr>';
+                    $output .= '<td style="border-style:none;">Bitcoin Address:</td><td style="border-style:none;"><input type="text" value="' . $lock_bitcoin_address . '"' . $bitcoin_address_readonly . ' name="bitcoin_address"/></td>';
+                    $output .= '</tr><tr>';
+                    $output .= '<td style="border-style:none;"></td><td style="border-style:none;"><a href=""><input type="submit" value="Collect money"/></a></td>';
+                    $output .= '</tr></table>';
+                    $output .= '<input type="hidden" name="cheque_no" value="' . $cheque_id_val . '">';
+                    $output .= '<input type="hidden" name="access_code" value="' . $access_code_str . '">';
+                    $output .= '</form>';
+                }
+                else
+                {
+                    if( empty($_REQUEST['confirm']))
+                    {
+                        $bitcoin_address_str = SanitizeInputText($_REQUEST['bitcoin_address']);
+
+                        if($lock_type == 'bitcoin_address')
+                        {
+                            if($user_handler->ClaimCheque($cheque_id, $access_code) == true)
+                            {
+                                $output .= '<h3>Cashing ok</h3>';
+                                $output .= 'Cheque money sent to ' . $lock_bitcoin_address;
+                            }
+                            else
+                            {
+                                $output .= '<h3>Cashing error</h3>';
+                                $output .= 'An error occured when collecting money.';
+                            }
+                        }
+                        elseif(($lock_type == 'email'))
+                        {
+                            $lock_email_confirmed = false;
+                            if(is_user_logged_in())
+                            {
+                                $current_user = wp_get_current_user();
+                                if($current_user->user_email == $lock_email)
+                                {
+                                    $lock_email_confirmed = true;
+                                }
+                            }
+
+                            if($lock_email_confirmed)
+                            {
+                                if($user_handler->ClaimCheque($cheque_id, $access_code) == true)
+                                {
+                                    $output .= '<h3>Cashing ok</h3>';
+                                    $output .= 'Cheque money sent to ' . $bitcoin_address_str;
+                                }
+                                else
+                                {
+                                    $output .= '<h3>Cashing error</h3>';
+                                    $output .= 'An error occured when collecting money.';
+                                }
+                            }
+                            else
+                            {
+                                $output .= '<h3>Cashing on hold - confirm your e-mail address</h3>';
+                                $output .= '<p>This cheque can only been claimd by owner of e-mail address ' . $lock_email . '</p>';
+
+                                $claim_url = site_url() . '/index.php/claim-cheque/?cheque_no=' . $cheque_id_val . '&access_code=' . $access_code_str . '&bitcoin_address='. $bitcoin_address_str .'&confirm=1';
+
+                                $body = '<p></p><b>Hello';
+                                $body .= '<p>You must confirm your e-mail address by clicking this link:</p>';
+                                $body .= '<p><a href="' . $claim_url . '">' . $claim_url . '</a></p>';
+
+                                $subject = 'Confirm your e-mail';
+
+                                $headers = array('Content-Type: text/html; charset=UTF-8');
+
+                                if(wp_mail($lock_email, $subject, $body, $headers))
+                                {
+                                    $output .= '<p>An e-mail with an confirm link has been sent to this address. Open that e-mail and click the confirm link in order to transfere the money.</p>';
+                                }
+                                else
+                                {
+                                    $output .= 'Error. Could not send e-mail.';
+                                }
+
+                            }
+                        }
+                    }
+                    else
+                    {
+                        $bitcoin_address_str = SanitizeInputText($_REQUEST['bitcoin_address']);
+                        $confirm_str = SanitizeInputText($_REQUEST['confirm']);
+
+                        if($user_handler->ClaimCheque($cheque_id, $access_code) == true)
+                        {
+                            $output .= '<h3>Cashing ok</h3>';
+                            $output .= '<p>E-mail has been confirmed</p>';
+                            $output .= '<p>Cheque money sent to ' . $bitcoin_address_str . '</p>';
+                        }
+                        else
+                        {
+                            $output .= '<h3>Cashing error</h3>';
+                            $output .= 'An error occured when collecting money.';
+                        }
+
+                    }
+                }
+            }
+            else
+            {
+                $output .= '<h3>Status: Claimed</h3>';
+
+                $output .= 'This check has been claimed and its money has been collected.';
+            }
+        }
     }
     else
     {
         $output = '<h3>Enter cheque details</h3>';
+
+        $output = '<form name="bcf_profile_form">';
+        $output .= '<table style="border-style:none;" width="100%"><tr>';
+        $output .= '<td style="border-style:none;">Cheque No.:</td><td style="border-style:none;"><input type="text" value="" name="cheque_no"/></td>';
+        $output .= '</tr><tr>';
+        $output .= '<td style="border-style:none;">Access Code:</td><td style="border-style:none;"><input type="text" value="" name="access_code" /></td>';
+        $output .= '</tr><tr>';
+        $output .= '<td style="border-style:none;"></td><td style="border-style:none;"><a href=""><input type="submit" value="Claim cheque"/></a></td>';
+        $output .= '</tr></table>';
+        $output .= '</form>';
     }
 
     return $output;
@@ -926,6 +1090,8 @@ function UserProfile()
         $output = '<form name="bcf_profile_form">';
         $output .= '<table style="border-style:none;" width="100%"><tr>';
         $output .= '<td style="border-style:none;">Login username:</td><td style="border-style:none;"><input type="text" value="' .  $current_user->user_login . '" readonly="readonly" /></td><td style="border-style:none;"><i>Cannot be changed.</i></td>';
+        $output .= '</tr><tr>';
+        $output .= '<td style="border-style:none;">Login username:</td><td style="border-style:none;"><input type="text" value="' .  $current_user->user_email . '" readonly="readonly" /></td><td style="border-style:none;"><i>Cannot be changed.</i></td>';
         $output .= '</tr><tr>';
         $output .= '<td style="border-style:none;">Name:</td><td style="border-style:none;"><input type="text" value="' . $name . '" name="full_name" /></td><td style="border-style:none;"><i>Name will be included in cheques in the Paid By field.</i></td>';
         $output .= '</tr><tr>';

@@ -291,6 +291,20 @@ class UserHandlerClass extends AccountingClass
         return $cheque;
     }
 
+    public function ClaimCheque($cheque_id, $access_code)
+    {
+        $result = false;
+
+        if(SanitizeChequeId($cheque_id) and SanitizeText($access_code))
+        {
+            $cheque = $this->DB_GetChequeData($cheque_id);
+
+            $result = $this->ChangeChequeState($cheque, 'CHEQUE_EVENT_CLAIM');
+        }
+
+        return $result;
+    }
+
     public function SetCurrentUserData($name_str, $country_str)
     {
         $result = false;
