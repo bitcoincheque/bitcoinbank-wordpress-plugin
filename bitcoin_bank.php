@@ -44,7 +44,7 @@ function SanitizeInputText($text)
 {
     $text = str_replace('<', '&lt;', $text);
     $text = str_replace('>', '&gt;', $text);
-    $text = str_replace('"', '&quot;', $text);
+    //$text = str_replace('"', '&quot;', $text);
 
     return $text;
 }
@@ -59,13 +59,9 @@ function ProcessAjaxValidateCheque()
 {
     $cheque_handler = new ChequeHandlerClass();
 
-    $cheque_json = SanitizeInputText($_REQUEST['cheque']);
-    $cheque_json = str_replace ('\"', '"', $cheque_json);
-    $cheque_json = str_replace ('\\', '', $cheque_json);
-    $cheque_json = rawurldecode($cheque_json);
-
-    //error_log('Validate cheque:' . $cheque_json);
-
+    $cheque_base64_uri_encoded = SanitizeInputText($_REQUEST['cheque']);
+    $cheque_base64 = urldecode($cheque_base64_uri_encoded);
+    $cheque_json = base64_decode($cheque_base64);
     $cheque = json_decode($cheque_json, true);
 
     $result_msg = $cheque_handler->ValidateCheque($cheque, true);
@@ -301,7 +297,7 @@ function Withdraw()
 {
     if(is_user_logged_in())
     {
-        $currency = 'uBTC';
+        $currency = 'BTC';
 
         if ( ! empty( $_REQUEST['select_account'] ) ) {
             $show_account_str = SanitizeInputText( $_REQUEST['select_account'] );
@@ -1123,6 +1119,178 @@ function UserProfile()
     return $output;
 }
 
+function Payment()
+{
+    $output = '';
+
+    if(!empty($_REQUEST['request']))
+    {
+        $request_link = SanitizeInputText($_REQUEST['request']);
+
+        if($request_link != '')
+        {
+            $api_response = wp_remote_get( $request_link );
+            if(wp_remote_retrieve_response_code($api_response) == 200)
+            {
+                $payment_request_json = wp_remote_retrieve_body( $api_response );
+
+                if(empty($payment_request_json))
+                {
+                    echo 'JSON object empty<br>';
+                }
+                else
+                {
+                    $payment_request = json_decode($payment_request_json, true);
+                    if($payment_request)
+                    {
+                    }
+                }
+            }
+
+            if(is_user_logged_in())
+            {
+                $output .= 'A payment has been requested.';
+                $amount = SanitizeInputInteger($payment_request['amount']);
+                $currency = SanitizeInputInteger($payment_request['currency']);
+
+                $formated_currency = GetFormattedCurrency($amount, $payment_request['currency'], true, ',');
+
+                $user_handler = new UserHandlerClass();
+                $account_data_list = $user_handler->GetAccountInfoListCurrentUser();
+
+                $output .= '<form name="bcf_withdraw_form">';
+                $output .= '<table style="border-style:none;" width="100%"><tr>';
+                $output .= '<td style="border-style:none;" width="30%">From my account:</td>';
+
+                $output .= '<td style="border-style:none;">';
+
+                $account_selected = null;
+                $output .= MakeHtmlSelectOptions($user_handler, $account_data_list, $account_selected, $currency);
+
+                $output .= '</td>';
+
+                $output .= '</tr><tr>';
+                $output .= '<td style="border-style:none;">Pay to:</td><td style="border-style:none;"><input type="text" value="' . $payment_request['receiver_name'] . '" name="receiver_name" /></td>';
+                $output .= '</tr><tr>';
+                $output .= '<td style="border-style:none;">Amount:</td><td style="border-style:none;"><input type="text" value="'.$formated_currency.'"/></td>';
+                $output .= '</tr><tr>';
+                $output .= '<td style="border-style:none;">Description:</td><td style="border-style:none;"><input type="text" value="'.$payment_request['description'].'" name="memo" /></td>';
+                $output .= '</tr><tr>';
+                $output .= '<td style="border-style:none;"></td><td style="border-style:none;"><a href="withdraw"><input type="submit" value="Make payment"/></a></td>';
+                $output .= '</tr></table>';
+                $output .= '<input type="hidden" name="lock" value="'.$payment_request['receiver_wallet'].'">';
+                $output .= '<input type="hidden" name="amount" value="'.$payment_request['amount'].'">';
+                $output .= '<input type="hidden" name="receiver_reference" value="'.$payment_request['ref'].'">';
+                $output .= '<input type="hidden" name="paylink" value="'.$payment_request['paylink'].'">';
+                $output .= '</form>';
+
+                $output .= '<br>';
+
+            }
+            else
+            {
+                $output .= 'You must log in to make the payment.';
+            }
+
+            $output .= '<h3>Advanced information:</h3>';
+            $output .= '<p>Payment request link: ' . $request_link . '</p>';
+            $output .= '<p>Payment request json: ' . $payment_request_json . '</p>';
+
+        }
+        else
+        {
+            $output .= 'No payment request found.';
+        }
+    }
+    elseif( !empty($_REQUEST['select_account'])
+        and !empty ($_REQUEST['amount'])
+        and !empty ($_REQUEST['receiver_name'])
+        and !empty ($_REQUEST['lock'])
+        and !empty ($_REQUEST['amount'])
+        and !empty ($_REQUEST['receiver_reference'])
+        and !empty ($_REQUEST['paylink']))
+    {
+        $select_account_val = SanitizeInputInteger($_REQUEST['select_account']);
+        $amount_val = SanitizeInputInteger($_REQUEST['amount']);
+        $receiver_name_str = SanitizeInputText($_REQUEST['receiver_name']);
+        $lock_addr_str = SanitizeInputText($_REQUEST['lock']);
+        $receiver_reference_str = SanitizeInputText($_REQUEST['receiver_reference']);
+        $paylink_str = SanitizeInputText($_REQUEST['paylink']);
+        $expire_days = 2;
+
+        if(is_user_logged_in())
+        {
+            $account_id = new AccountIdTypeClass($select_account_val);
+            $amount = new ValueTypeClass($amount_val);
+            $receiver_name = new NameTypeClass($receiver_name_str);
+            $lock_address = new TextTypeClass($lock_addr_str);
+            $expire_seconds = $expire_days * 24 * 3600;
+            $escrow_seconds = 0;
+            $receiver_reference = new TextTypeClass($receiver_reference_str);
+
+            $user_handler = new UserHandlerClass();
+            $cheque = $user_handler->IssueCheque($account_id, $amount, $expire_seconds, $escrow_seconds, $receiver_name, $lock_address, $receiver_reference);
+
+            if($cheque != null)
+            {
+                $cheque_id_str   = $cheque->GetChequeId()->GetString();
+                $access_code_str = $cheque->GetAccessCode()->GetString();
+
+                $cheque_base64 = $cheque->GetBase64();
+                //$cheque_json_encoded = rawurlencode($cheque_json);
+                $cheque_base64_url_encoded = urlencode ($cheque_base64);
+
+                $api_url = $paylink_str . '&cheque=' . $cheque_base64_url_encoded;
+
+                $api_response = wp_remote_get( $api_url );
+                if(wp_remote_retrieve_response_code($api_response) == 200)
+                {
+                    $json = wp_remote_retrieve_body( $api_response );
+
+                    if(empty($json))
+                    {
+                        $output .= 'Error: JSON object empty.<br>';
+                    }
+                    else
+                    {
+                        $output .= 'JSON: '. $json . '<br>';
+
+                        $json_decoded = json_decode($json, true);
+                        if($json_decoded)
+                        {
+                            $return_link = $json_decoded['return_link'];
+
+                            $output .= '<p>Payment OK.</p>';
+                            $output .= '<a href="'.$return_link.'"><input type="submit" value="Return to site"/></a>';
+                        }
+                        else
+                        {
+                            $output .= 'Error: Can not decode JSON object.<br>';
+
+                        }
+
+                        $output .= '<h3>Advanced information:</h3>';
+                        $output .= "Pay call: " . $api_url . '<br><br>';
+                        $output .= 'JSON: '. $json . '<br>';
+                    }
+                }
+
+            }
+            else
+            {
+                $output .= 'Payment error.';
+            }
+        }
+        else
+        {
+            $output .= 'Error. Not logged in.';
+        }
+    }
+
+
+    return $output;
+}
+
 function ActivatePlugin()
 {
     /* To let it be recreated */
@@ -1161,6 +1329,7 @@ add_shortcode('bcf_bitcoinbank_cheque_details', 'BCF_BitcoinBank\ChequeDetails')
 add_shortcode('bcf_bitcoinbank_draw_cheque', 'BCF_BitcoinBank\DrawCheque');
 add_shortcode('bcf_bitcoinbank_claim_cheque', 'BCF_BitcoinBank\ClaimCheque');
 add_shortcode('bcf_bitcoinbank_profile', 'BCF_BitcoinBank\UserProfile');
+add_shortcode('bcf_bitcoinbank_payment', 'BCF_BitcoinBank\Payment');
 
 register_activation_hook(__FILE__, 'BCF_BitcoinBank\ActivatePlugin');
 register_deactivation_hook(__FILE__, 'BCF_BitcoinBank\DeactivatePlugin');

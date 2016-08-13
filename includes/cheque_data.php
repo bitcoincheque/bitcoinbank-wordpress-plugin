@@ -750,6 +750,17 @@ class ChequeDataClass extends DataBaseClass
         return $json;
     }
 
+    public function GetBase64()
+    {
+        $public_data_only = true;
+        $data_array = $this->GetDataArray($public_data_only);
+
+        $json = json_encode($data_array);
+        $base64 = base64_encode($json);
+
+        return $base64;
+    }
+
     public function CompareCheque($other_data_array)
     {
         $result = 'OK';
