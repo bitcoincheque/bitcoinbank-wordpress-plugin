@@ -152,12 +152,25 @@ function ProcessAjaxRequestCheque()
     {
         //error_log('Issued   cheque:' . $cheque_json);
         //error_log($cheque_json);
-        echo $cheque->GetJson();
+
+        $response_data = array(
+            'result'    => 'OK',
+            'ver'       => '1',
+            'cheque'    => $cheque->GetBase64(),
+            'hash'      => '84784uj3489ryfj',
+            'status'    => 'UNCLAIMED'
+        );
+
+        echo json_encode($response_data);
     }
     else
     {
-        //error_log('Issue cheque failed');
-        error_log('Issue cheque failed');
+        $response_data = array(
+            'result'    => 'ERROR',
+            'msg'       => 'Unknown error'
+        );
+
+        echo json_encode($response_data);
     }
 
     die();
@@ -513,14 +526,26 @@ function ChequeDetails()
             $output .= $html_table2->GetHtmlTable();
 
             $output .= '<p>';
+
+            $output .= '<br>';
+            $output .= '<br>';
+            $output .= '<br>';
+            $output .= '<hr>';
             $output .= '<h3>Developer\'s details</h3>';
-            $output .= '<b>Bitcoin Cheque in JSON format:</b>';
-            $filtered_text = SanitizeInputText($cheque->GetJson());
+            $output .= '<b>Bitcoin Cheque File (Base64 encoding of the JSON format):</b>';
             $html_table3   = new HtmlTableClass();
-            $html_table3->AddLineItem($filtered_text, '', 'style="word-wrap:break-word; overflow-wrap:nowrap; hyphens:none;"');
+            $html_table3->AddLineItem($cheque->GetBase64(), '', 'style="word-wrap:break-word; overflow-wrap:nowrap; hyphens:none;"');
             $html_table3->RowFeed();
             $output .= '<p>';
             $output .= $html_table3->GetHtmlTable('style="table-layout: fixed; width: 100%"');
+
+            $output .= '<b>Bitcoin Cheque in JSON format:</b>';
+            $filtered_text = SanitizeInputText($cheque->GetJson());
+            $html_table4   = new HtmlTableClass();
+            $html_table4->AddLineItem($filtered_text, '', 'style="word-wrap:break-word; overflow-wrap:nowrap; hyphens:none;"');
+            $html_table4->RowFeed();
+            $output .= '<p>';
+            $output .= $html_table4->GetHtmlTable('style="table-layout: fixed; width: 100%"');
         }
         else
         {
@@ -1130,6 +1155,8 @@ function Payment()
         if($request_link != '')
         {
             $api_response = wp_remote_get( $request_link );
+            $payment_request = '';
+
             if(wp_remote_retrieve_response_code($api_response) == 200)
             {
                 $payment_request_json = wp_remote_retrieve_body( $api_response );
@@ -1189,17 +1216,23 @@ function Payment()
             }
             else
             {
-                $output .= 'You must log in to make the payment.';
+                $output .= '<p>You must log in to make the payment.</p>';
+                $output .= '<p>If you don\'t have an account, please register first.</p>';
+                $output .= '<p>After log-in you will need to return to this page and refresh the it.</p>';
             }
 
-            $output .= '<h3>Advanced information:</h3>';
+            $output .= '<br>';
+            $output .= '<br>';
+            $output .= '<br>';
+            $output .= '<hr>';
+            $output .= '<h3>Developer\'s details</h3>';
             $output .= '<p>Payment request link: ' . $request_link . '</p>';
             $output .= '<p>Payment request json: ' . $payment_request_json . '</p>';
 
         }
         else
         {
-            $output .= 'No payment request found.';
+            $output .= 'No payment request in url found.';
         }
     }
     elseif( !empty($_REQUEST['select_account'])
@@ -1253,8 +1286,6 @@ function Payment()
                     }
                     else
                     {
-                        $output .= 'JSON: '. $json . '<br>';
-
                         $json_decoded = json_decode($json, true);
                         if($json_decoded)
                         {
@@ -1269,9 +1300,9 @@ function Payment()
 
                         }
 
-                        $output .= '<h3>Advanced information:</h3>';
-                        $output .= "Pay call: " . $api_url . '<br><br>';
-                        $output .= 'JSON: '. $json . '<br>';
+                        $output .= '<br><br><h3>Advanced information:</h3>';
+                        $output .= 'Get request with cheque:<br> ' . $api_url . '<br><br>';
+                        $output .= 'Response back from site:<br> '. $json . '<br>';
                     }
                 }
 
@@ -1286,7 +1317,10 @@ function Payment()
             $output .= 'Error. Not logged in.';
         }
     }
-
+    else
+    {
+        $output .= 'Here you make payments.';
+    }
 
     return $output;
 }
