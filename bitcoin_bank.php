@@ -55,6 +55,24 @@ function SanitizeInputInteger($text)
     return $value;
 }
 
+function ConvertFloatToIntCurrency($amount_float, $currency_unit)
+{
+    switch($currency_unit)
+    {
+        case 'uBTC': $unit_size = 100; break;
+        case 'mBTC': $unit_size = 100000; break;
+        case 'BTC': $unit_size  = 100000000; break;
+        default:
+            die();
+    }
+
+    $amount_float = str_replace(',', '.', $amount_float);
+    $amount_float = floatval($amount_float);
+    $amount_float *= $unit_size;
+    $amount_int = intval($amount_float);
+    return $amount_int;
+}
+
 function ProcessAjaxValidateCheque()
 {
     $cheque_handler = new ChequeHandlerClass();
@@ -421,7 +439,7 @@ function MakeHtmlFormSelectAccount($user_handler, $account_data_list, $account_s
 function ListUserTransactions($atts)
 {
     if (is_user_logged_in()) {
-        $currency = 'uBTC';
+        $currency = 'BTC';
 
         if ( ! empty( $_REQUEST['select_account'] ) ) {
             $show_account_str = SanitizeInputText( $_REQUEST['select_account'] );
@@ -754,7 +772,7 @@ function ChequeDetails()
 
 function ListUserCheques()
 {
-    $currency = 'uBTC';
+    $currency = 'BTC';
 
     if (is_user_logged_in())
     {
@@ -832,7 +850,7 @@ function DrawCheque()
     if (is_user_logged_in())
     {
         $user_handler = new UserHandlerClass();
-        $currency = 'uBTC';
+        $currency = 'BTC';
 
         if( !empty($_REQUEST['select_account'])
             and !empty($_REQUEST['amount'])
@@ -860,7 +878,9 @@ function DrawCheque()
             }
 
 
-            $amount_int = SanitizeInputInteger($_REQUEST['amount']);
+            $amount_float = SanitizeInputText($_REQUEST['amount']);
+
+            $amount_int = ConvertFloatToIntCurrency($amount_float, $currency);
 
             $expire_days = SanitizeInputInteger($_REQUEST['expired_days']);
 
@@ -1342,6 +1362,48 @@ function UserProfile()
     return $output;
 }
 
+
+function DrawPaymentForm($cheque_request)
+{
+    $output = '';
+
+    $amount = SanitizeInputInteger($cheque_request['amount']);
+    $currency = SanitizeInputInteger($cheque_request['currency']);
+
+    $formated_currency = GetFormattedCurrency($amount, $cheque_request['currency'], false, ',');
+
+    $user_handler = new UserHandlerClass();
+    $account_data_list = $user_handler->GetAccountInfoListCurrentUser();
+
+    $output .= '<form name="bcf_withdraw_form">';
+    $output .= '<table style="border-style:none;" width="100%"><tr>';
+    $output .= '<td style="border-style:none;" width="20%">From my account:</td>';
+
+    $output .= '<td style="border-style:none;" width="50%">';
+
+    $account_selected = null;
+    $output .= MakeHtmlSelectOptions($user_handler, $account_data_list, $account_selected, $currency);
+
+    $output .= '</td><td style="border-style:none;"></td>';
+
+    $output .= '</tr><tr>';
+    $output .= '<td style="border-style:none;">Pay to:</td><td style="border-style:none;"><input type="text" style="width:100%;" value="' . $cheque_request['receiver_name'] . '" name="receiver_name" /></td><td style="border-style:none;"></td>';
+    $output .= '</tr><tr>';
+    $output .= '<td style="border-style:none;">Amount:</td><td style="border-style:none;"><input type="text" style="width:100%;" name="amount" value="' . $formated_currency . '"/></td><td style="border-style:none;">' . $cheque_request['currency'] . '</td>';
+    $output .= '</tr><tr>';
+    $output .= '<td style="border-style:none;">Description:</td><td style="border-style:none;"><input type="text" style="width:100%;" value="' . $cheque_request['description'] . '" name="memo" /></td><td style="border-style:none;"></td>';
+    $output .= '</tr><tr>';
+    $output .= '<td style="border-style:none;"></td><td style="border-style:none;"><a href="withdraw"><input type="submit" value="Make payment"/></a></td><td style="border-style:none;"></td>';
+    $output .= '</tr></table>';
+    $output .= '<input type="hidden" name="lock" value="'.$cheque_request['receiver_wallet'].'">';
+    $output .= '<input type="hidden" name="receiver_reference" value="'.$cheque_request['ref'].'">';
+    $output .= '<input type="hidden" name="currency" value="'.$cheque_request['currency'].'">';
+    $output .= '<input type="hidden" name="paylink" value="'.$cheque_request['paylink'].'">';
+    $output .= '</form>';
+
+    return $output;
+}
+
 function Payment()
 {
     $output = '';
@@ -1374,42 +1436,23 @@ function Payment()
 
             if(is_user_logged_in())
             {
+                $cheque_request_json_bas64_prefix = $payment_request['cheque_request'];
+                if(!strpos($cheque_request_json_bas64_prefix, '_') === false)
+                {
+                    $i = strrpos($cheque_request_json_bas64_prefix, '_')+1;
+                    $cheque_request_json_bas64 = substr($cheque_request_json_bas64_prefix, $i);
+                }
+                else
+                {
+                    $cheque_request_json_bas64 = $cheque_request_json_bas64_prefix;
+                }
+                $cheque_request_json = base64_decode($cheque_request_json_bas64);
+                $cheque_request = json_decode($cheque_request_json, true);
+
                 $output .= 'A payment has been requested.';
-                $amount = SanitizeInputInteger($payment_request['amount']);
-                $currency = SanitizeInputInteger($payment_request['currency']);
 
-                $formated_currency = GetFormattedCurrency($amount, $payment_request['currency'], true, ',');
+                $output .= DrawPaymentForm($cheque_request);
 
-                $user_handler = new UserHandlerClass();
-                $account_data_list = $user_handler->GetAccountInfoListCurrentUser();
-
-                $output .= '<form name="bcf_withdraw_form">';
-                $output .= '<table style="border-style:none;" width="100%"><tr>';
-                $output .= '<td style="border-style:none;" width="30%">From my account:</td>';
-
-                $output .= '<td style="border-style:none;">';
-
-                $account_selected = null;
-                $output .= MakeHtmlSelectOptions($user_handler, $account_data_list, $account_selected, $currency);
-
-                $output .= '</td>';
-
-                $output .= '</tr><tr>';
-                $output .= '<td style="border-style:none;">Pay to:</td><td style="border-style:none;"><input type="text" value="' . $payment_request['receiver_name'] . '" name="receiver_name" /></td>';
-                $output .= '</tr><tr>';
-                $output .= '<td style="border-style:none;">Amount:</td><td style="border-style:none;"><input type="text" value="'.$formated_currency.'"/></td>';
-                $output .= '</tr><tr>';
-                $output .= '<td style="border-style:none;">Description:</td><td style="border-style:none;"><input type="text" value="'.$payment_request['description'].'" name="memo" /></td>';
-                $output .= '</tr><tr>';
-                $output .= '<td style="border-style:none;"></td><td style="border-style:none;"><a href="withdraw"><input type="submit" value="Make payment"/></a></td>';
-                $output .= '</tr></table>';
-                $output .= '<input type="hidden" name="lock" value="'.$payment_request['receiver_wallet'].'">';
-                $output .= '<input type="hidden" name="amount" value="'.$payment_request['amount'].'">';
-                $output .= '<input type="hidden" name="receiver_reference" value="'.$payment_request['ref'].'">';
-                $output .= '<input type="hidden" name="paylink" value="'.$payment_request['paylink'].'">';
-                $output .= '</form>';
-
-                $output .= '<br>';
 
             }
             else
@@ -1420,12 +1463,17 @@ function Payment()
             }
 
             $output .= '<br>';
+
+            $output .= '<h3>Or use another bank</h3>';
+            $output .= '<p>If you are already using another bank, you can copy the payment request file below, and paste it in your prefered bank´s payment page:</p>';
+            $output .= '<textarea rows="10" style="width:100%;">' . $cheque_request_json_bas64_prefix . '</textarea>';
+
+
             $output .= '<br>';
             $output .= '<br>';
-            $output .= '<hr>';
             $output .= '<h3>Developer\'s details</h3>';
-            $output .= '<p>Payment request link: ' . $request_link . '</p>';
-            $output .= '<p>Payment request json: ' . $payment_request_json . '</p>';
+            $output .= '<p>Payment request link:<br> ' . $request_link . '</p>';
+            $output .= '<p>Payment request json:<br> ' . $payment_request_json . '</p>';
 
         }
         else
@@ -1438,11 +1486,13 @@ function Payment()
         and !empty ($_REQUEST['receiver_name'])
         and !empty ($_REQUEST['lock'])
         and !empty ($_REQUEST['amount'])
+        and !empty ($_REQUEST['currency'])
         and !empty ($_REQUEST['receiver_reference'])
         and !empty ($_REQUEST['paylink']))
     {
         $select_account_val = SanitizeInputInteger($_REQUEST['select_account']);
-        $amount_val = SanitizeInputInteger($_REQUEST['amount']);
+        $amount_float = SanitizeInputText($_REQUEST['amount']);
+        $currency = SanitizeInputText($_REQUEST['currency']);
         $receiver_name_str = SanitizeInputText($_REQUEST['receiver_name']);
         $lock_addr_str = SanitizeInputText($_REQUEST['lock']);
         $receiver_reference_str = SanitizeInputText($_REQUEST['receiver_reference']);
@@ -1451,6 +1501,8 @@ function Payment()
 
         if(is_user_logged_in())
         {
+            $amount_val = ConvertFloatToIntCurrency($amount_float, $currency);
+
             $account_id = new AccountIdTypeClass($select_account_val);
             $amount = new ValueTypeClass($amount_val);
             $receiver_name = new NameTypeClass($receiver_name_str);
@@ -1487,10 +1539,18 @@ function Payment()
                         $json_decoded = json_decode($json, true);
                         if($json_decoded)
                         {
-                            $return_link = $json_decoded['return_link'];
+                            if($json_decoded['pay_status'] == 'OK')
+                            {
+                                $return_link = $json_decoded['return_link'];
 
-                            $output .= '<p>Payment OK.</p>';
-                            $output .= '<a href="'.$return_link.'"><input type="submit" value="Return to site"/></a>';
+                                $output .= '<p>Payment OK.</p>';
+                                $output .= '<a href="' . $return_link . '"><input type="submit" value="Return to site"/></a>';
+                            }
+                            else
+                            {
+                                $output .= '<p>Payment error.</p>';
+                                $output .= '<p>Message from receiver:<br>' . $json;
+                            }
                         }
                         else
                         {
@@ -1515,9 +1575,40 @@ function Payment()
             $output .= 'Error. Not logged in.';
         }
     }
+    elseif(!empty($_REQUEST['invoice']))
+    {
+        $invoice = SanitizeInputText($_REQUEST['invoice']);
+
+
+        if(!strpos($invoice, '_') === false)
+        {
+            $i = strrpos($invoice, '_')+1;
+            $invoice = substr($invoice, $i);
+        }
+        $cheque_request_json_padded = base64_decode($invoice);
+        $cheque_request_json = trim($cheque_request_json_padded, ' ');
+        $cheque_request = json_decode($cheque_request_json, true);
+
+        $output .= '<p>Make a payment:</p>';
+
+        $output .= DrawPaymentForm($cheque_request);
+
+        $output .= '<br><br>';
+        $output .= '<br><br>';
+        $output .= '<h3>Developer\'s details</h3>';
+        $output .= '<p>request:<br> ' . json_encode($cheque_request) . '</p>';
+
+    }
     else
     {
-        $output .= 'Here you make payments.';
+        $output .= '<h3>Make payment to Bitcoin Invoice</h3>';
+        $output .= '<p>Paste the Bitcoin Invoice file in this input form:</p>';
+        $output .= '<form>';
+        $output .= '<textarea name="invoice" rows="10" style="width:100%;"></textarea>';
+        $output .= '<br><br>';
+        $output .= '<input type="submit" value="Read Bitcoin Invoice file"/>';
+        $output .= '</form>';
+
     }
 
     return $output;
