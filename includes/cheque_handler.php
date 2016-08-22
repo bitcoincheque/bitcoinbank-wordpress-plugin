@@ -135,5 +135,55 @@ class ChequeHandlerClass extends AccountingClass
 
         return $result;        
     }
+
+    public function GetAccountInfoListFromWpUser($wp_user_id)
+    {
+        $account_info_list = array();
+
+        $wp_id = new WpUserIdTypeClass($wp_user_id);
+
+        $bank_user_data = $this->GetBankUserDataFromWpUser($wp_id);
+        if(!empty($bank_user_data))
+        {
+            $bank_user_id = $bank_user_data->GetBankUserId();
+            $account_info_list = $this->GetAccountInfoList($bank_user_id);
+        }
+
+        return $account_info_list;
+    }
+
+    public function GetUsersAccountBalance($account_id)
+    {
+        $balance = null;
+
+        if(SanitizeAccountId($account_id))
+        {
+            $balance =  $this->GetAccountBalance($account_id);
+        }
+
+        return $balance;
+    }
+
+    public function GetTransactionListForCurrentUser($wp_user_id, $account_id)
+    {
+        $transaction_records_list = array();
+
+        if(SanitizeWpUserId($wp_user_id) and SanitizeAccountId($account_id))
+        {
+            $bank_user_data = $this->GetBankUserDataFromWpUser($wp_user_id);
+            if(!empty($bank_user_data))
+            {
+                $bank_user_id = $bank_user_data->GetBankUserId();
+
+                if($this->IsBankUserAccountOwner($bank_user_id, $account_id))
+                {
+                    $transaction_records_list = $this->GetTransactionList($account_id);
+                }
+            }
+        }
+
+        return $transaction_records_list;
+    }
+
 }
 

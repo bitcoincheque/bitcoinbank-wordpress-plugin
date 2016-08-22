@@ -199,9 +199,26 @@ class AccountingClass extends DatabaseInterfaceClass
 
         return $bank_user_id;
     }
-    
-    
 
+    protected function IsBankUserAccountOwner($bank_user_id, $account_id)
+    {
+        $result = false;
+
+        if(SanitizeBankUserId($bank_user_id) and SanitizeAccountId($account_id))
+        {
+            $account_owner_id = $this->GetAccountOwner($account_id);
+
+            if($account_owner_id != null)
+            {
+                if($account_owner_id->GetInt() == $bank_user_id->GetInt())
+                {
+                    $result = true;
+                }
+            }
+        }
+
+        return $result;
+    }
 
     protected function GetAccountData($account_id)
     {

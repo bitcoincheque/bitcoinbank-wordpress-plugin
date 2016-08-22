@@ -52,10 +52,7 @@ class UserHandlerClass extends AccountingClass
                     $wp_id = new WpUserIdTypeClass($current_user->ID);
                     $bank_user_id = $this->GetBankUserIdFromWpUser($wp_id);
 
-                    if ($account_owner_id->GetInt() == $bank_user_id->GetInt())
-                    {
-                        $result = true;
-                    }
+                    $result = $this->IsBankUserAccountOwner($bank_user_id, $account_id);
                 }
             }
         }
@@ -111,7 +108,7 @@ class UserHandlerClass extends AccountingClass
         
         return $balance;
     }
-    
+
     public function GetTransactionListForCurrentUser($account_id)
     {
         $transaction_records_list = array();

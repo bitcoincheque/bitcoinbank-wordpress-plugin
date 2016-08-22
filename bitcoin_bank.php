@@ -175,6 +175,201 @@ function ProcessAjaxRequestCheque()
 
     die();
 }
+
+function ProcessAjaxGetAccountList()
+{
+    if(!empty($_REQUEST['username'])
+        and (!empty($_REQUEST['password'])))
+    {
+        $username = SanitizeInputText($_REQUEST['username']);
+        $password = SanitizeInputText($_REQUEST['password']);
+
+        $wp_user = get_user_by( 'login', $username );
+        if($wp_user != false)
+        {
+            if(wp_check_password( $password, $wp_user->data->user_pass, $wp_user->ID))
+            {
+                $wp_user_id = $wp_user->ID;
+
+                $cheque_handler    = new ChequeHandlerClass();
+                $account_data_list = $cheque_handler->GetAccountInfoListFromWpUser($wp_user_id);
+
+                if( ! empty($account_data_list))
+                {
+                    $account_list = [];
+
+                    foreach($account_data_list as $account_data)
+                    {
+                        $listed_account_id = $account_data->GetAccountId();
+                        $account_name      = $account_data->GetAccountName();
+                        $balance           = $cheque_handler->GetUsersAccountBalance($listed_account_id);
+
+                        $account = array(
+                            'account_id' => $listed_account_id->GetString(),
+                            'name'       => $account_name->GetString(),
+                            'balance'    => $balance->GetString(),
+                            'currency'   => 'BTC'
+                        );
+
+                        $account_list[] = $account;
+                    }
+
+                    if( ! empty($account_list))
+                    {
+                        $response_data = array(
+                            'result' => 'OK',
+                            'list'   => $account_list
+                        );
+                    }
+                    else
+                    {
+                        $response_data = array(
+                            'result' => 'ERROR',
+                            'msg'    => 'User has no account.'
+                        );
+                    }
+
+                }
+                else
+                {
+                    $response_data = array(
+                        'result' => 'ERROR',
+                        'msg'    => 'User has no account.'
+                    );
+                }
+            }
+            else
+            {
+                $response_data = array(
+                    'result' => 'ERROR',
+                    'msg'    => 'Wrong password.'
+                );
+            }
+        }
+        else
+        {
+            $response_data = array(
+                'result'    => 'ERROR',
+                'msg'       => 'Invalid username.'
+            );
+        }
+    }
+    else
+    {
+        $response_data = array(
+            'result'    => 'ERROR',
+            'msg'       => 'Invalid request.'
+        );
+    }
+
+    echo json_encode($response_data);
+    die();
+}
+
+function ProcessAjaxGetAccountDetails()
+{
+    if(!empty($_REQUEST['account']))
+    {
+        $account = SanitizeInputInteger($_REQUEST['account']);
+
+        $response_data = array(
+            'result'    => 'OK',
+            'acount'    => $account,
+            'name'      => 'Name',
+            'balance'    => 0
+        );
+    }
+    else
+    {
+        $response_data = array(
+            'result'    => 'ERROR',
+            'msg'       => 'Request error.'
+        );
+    }
+
+    echo json_encode($response_data);
+    die();
+}
+
+function ProcessAjaxGetTransactionList()
+{
+    if(!empty($_REQUEST['username'])
+       and (!empty($_REQUEST['password']))
+       and (!empty($_REQUEST['account'])))
+    {
+        $username_str = SanitizeInputText($_REQUEST['username']);
+        $password_str = SanitizeInputText($_REQUEST['password']);
+        $account_int = SanitizeInputInteger($_REQUEST['account']);
+
+        $wp_user = get_user_by('login', $username_str);
+        if($wp_user != false)
+        {
+            if(wp_check_password($password_str, $wp_user->data->user_pass, $wp_user->ID))
+            {
+                $wp_user_id_val = $wp_user->ID;
+
+                $cheque_handler    = new ChequeHandlerClass();
+
+                $wp_user_id = new WpUserIdTypeClass($wp_user_id_val);
+                $account_id= new AccountIdTypeClass($account_int);
+
+                $transaction_records_list = $cheque_handler->GetTransactionListForCurrentUser($wp_user_id, $account_id);
+                $balance = $cheque_handler->GetUsersAccountBalance($account_id);
+
+                $transactions = array();
+                $count=0;
+                foreach (array_reverse($transaction_records_list) as $transaction_record)
+                {
+                    $transaction = array(
+                        'id'       => $transaction_record->GetTransactionId()->GetString(),
+                        'datetime' => $transaction_record->GetDateTime()->GetString(),
+                        'type'     => $transaction_record->GetTransactionType()->GetString(),
+                        'amount'   => $transaction_record->GetTransactionAmount()->GetString(),
+                        'balance'  => $transaction_record->GetTransactionBalance()->GetString()
+                    );
+
+                    $transactions[] = $transaction;
+
+                    $count++;
+                    if($count == 25) { break;}
+                }
+
+                $response_data = array(
+                    'result'       => 'OK',
+                    'acount'         => $account_id->GetString(),
+                    'transactions' => $transactions,
+                    'balance'      => $balance->GetString(),
+                    'currency'     => 'BTC'
+                );
+            }
+            else
+            {
+                $response_data = array(
+                    'result' => 'ERROR',
+                    'msg'    => 'Wrong password.'
+                );
+            }
+        }
+        else
+        {
+            $response_data = array(
+                'result'    => 'ERROR',
+                'msg'       => 'Invalid username.'
+            );
+        }
+    }
+    else
+    {
+        $response_data = array(
+            'result'    => 'ERROR',
+            'msg'       => 'Invalid request.'
+        );
+    }
+
+    echo json_encode($response_data);
+    die();
+}
+
 function MakeHtmlSelectOptions($user_handler, $account_data_list, $account_selected, $currency)
 {
     $html = '<select name="select_account">';
@@ -763,6 +958,9 @@ function DrawCheque()
                 $body .= ',</b></p>';
                 if($message)
                 {
+                    /* Strip out non utf-8 characters */
+                    $message = preg_replace('/[\x00-\x1F\x80-\xFF]/', '', $message);
+
                     $body .= '<p>' . $message . '</p>';
                     $body .= '<p>To collect the money click on the cheque picture or copy the link below into your web browser.</p>';
                 }
@@ -1325,6 +1523,7 @@ function Payment()
     return $output;
 }
 
+
 function ActivatePlugin()
 {
     /* To let it be recreated */
@@ -1354,6 +1553,15 @@ add_action('wp_ajax_bcf_bitcoinbank_process_ajax_validate_cheque', 'BCF_BitcoinB
 // Can be tested i browser: /wp-admin/admin-ajax.php?action=bcf_bitcoinbank_get_cheque_png
 add_action('wp_ajax_nopriv_bcf_bitcoinbank_get_cheque_png', 'BCF_BitcoinBank\ProcessAjaxCreatePngCheque');
 add_action('wp_ajax_bcf_bitcoinbank_get_cheque_png', 'BCF_BitcoinBank\ProcessAjaxCreatePngCheque');
+
+add_action('wp_ajax_nopriv_get_account_list', 'BCF_BitcoinBank\ProcessAjaxGetAccountList');
+add_action('wp_ajax_get_account_list', 'BCF_BitcoinBank\ProcessAjaxGetAccountList');
+
+add_action('wp_ajax_nopriv_get_account_details', 'BCF_BitcoinBank\ProcessAjaxGetAccountDetails');
+add_action('wp_ajax_get_account_details', 'BCF_BitcoinBank\ProcessAjaxGetAccountDetails');
+
+add_action('wp_ajax_nopriv_get_transactions', 'BCF_BitcoinBank\ProcessAjaxGetTransactionList');
+add_action('wp_ajax_get_transactions', 'BCF_BitcoinBank\ProcessAjaxGetTransactionList');
 
 /* Add shortcodes */
 add_shortcode('bcf_bitcoinbank_list_user_transactions', 'BCF_BitcoinBank\ListUserTransactions');
