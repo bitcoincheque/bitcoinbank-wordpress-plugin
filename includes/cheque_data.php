@@ -750,6 +750,13 @@ class ChequeDataClass extends DataBaseClass
         return $json;
     }
 
+    public function GetHash()
+    {
+        $json = $this->GetJson();
+        $hash = md5($json);
+        return $hash;
+    }
+
     public function GetBase64()
     {
         $public_data_only = true;

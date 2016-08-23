@@ -38,6 +38,8 @@ namespace BCF_BitcoinBank;
 require_once('includes/user_handler.php');
 require_once('includes/cheque_handler.php');
 require_once('includes/html_table.php');
+require_once('includes/payment_data_codec.php');
+
 
 
 function SanitizeInputText($text)
@@ -72,6 +74,16 @@ function ConvertFloatToIntCurrency($amount_float, $currency_unit)
     $amount_int = intval($amount_float);
     return $amount_int;
 }
+
+function DecodeAndVerifyPaymentFile($payment_file)
+{
+    $encoded_payment_file = new PaymentDataFile();
+    $encoded_payment_file->SetEncodedPaymentFile($payment_file);
+    $decoded_data = $encoded_payment_file->GetDataArray();
+
+    return $decoded_data;
+}
+
 
 function ProcessAjaxValidateCheque()
 {
@@ -719,6 +731,10 @@ function ChequeDetails()
             $html_table->AddLineItem($cheque->GetAccessCode()->GetString());
             $html_table->RowFeed();
 
+            $html_table->AddLineItem('Access Code:');
+            $html_table->AddLineItem($cheque->GetHash());
+            $html_table->RowFeed();
+
             $html_table2 = new HtmlTableClass();
             $html_table2->AddLineItem('Account No.:');
             $html_table2->AddLineItem($cheque->GetOwnerAccountId()->GetString());
@@ -1262,6 +1278,8 @@ function ProcessAjaxCreatePngCheque()
 
         if(!is_null($cheque))
         {
+            $hash = $cheque->GetHash();
+
             header("Content-type: image/png");
 
             $filename = plugin_dir_path(__FILE__) . 'bank_logo.png';
@@ -1286,7 +1304,7 @@ function ProcessAjaxCreatePngCheque()
             imagestring($im, 10, 490, 190, 'Expire date: ' . $cheque->GetExpireDateTime()->GetString(), $black);
             imagestring($im, 10, 490, 210, 'Escrow date: ' . $cheque->GetEscrowDateTime()->GetString(), $black);
 
-            imagestring($im, 10, 20, 275, 'Cheque No.:' . $cheque_id_val . '  Access Code:' . $access_code->GetString() . '  Hash:78fhjrf7y49rfherf67y', $black);
+            imagestring($im, 10, 20, 275, 'Cheque No.:' . $cheque_id_val . '  Access Code:' . $access_code->GetString() . '  Hash:'. $hash , $black);
 
             imagepng($im);
 
@@ -1415,7 +1433,7 @@ function Payment()
         if($request_link != '')
         {
             $api_response = wp_remote_get( $request_link );
-            $payment_request = '';
+            $cheque_request = array();
 
             if(wp_remote_retrieve_response_code($api_response) == 200)
             {
@@ -1428,53 +1446,47 @@ function Payment()
                 else
                 {
                     $payment_request = json_decode($payment_request_json, true);
-                    if($payment_request)
+                    if(!empty($payment_request))
                     {
+                        $payment_request_file = $payment_request['cheque_request'];
+
+                        $cheque_request = DecodeAndVerifyPaymentFile($payment_request_file);
                     }
                 }
             }
 
-            if(is_user_logged_in())
+            if(!empty($cheque_request))
             {
-                $cheque_request_json_bas64_prefix = $payment_request['cheque_request'];
-                if(!strpos($cheque_request_json_bas64_prefix, '_') === false)
+                if(is_user_logged_in())
                 {
-                    $i = strrpos($cheque_request_json_bas64_prefix, '_')+1;
-                    $cheque_request_json_bas64 = substr($cheque_request_json_bas64_prefix, $i);
+                    $output .= 'A payment has been requested.';
+
+                    $output .= DrawPaymentForm($cheque_request);
                 }
                 else
                 {
-                    $cheque_request_json_bas64 = $cheque_request_json_bas64_prefix;
+                    $output .= '<p>You must log in to make the payment.</p>';
+                    $output .= '<p>If you don\'t have an account, please register first.</p>';
+                    $output .= '<p>After log-in you will need to return to this page and refresh the it.</p>';
                 }
-                $cheque_request_json = base64_decode($cheque_request_json_bas64);
-                $cheque_request = json_decode($cheque_request_json, true);
 
-                $output .= 'A payment has been requested.';
+                $output .= '<br>';
 
-                $output .= DrawPaymentForm($cheque_request);
+                $output .= '<h3>Or use another bank</h3>';
+                $output .= '<p>If you are already using another bank, you can copy the payment request file below, and paste it in your prefered bank´s payment page:</p>';
+                $output .= '<textarea rows="10" style="width:100%;">' . $payment_request_file . '</textarea>';
 
 
+                $output .= '<br>';
+                $output .= '<br>';
+                $output .= '<h3>Developer\'s details</h3>';
+                $output .= '<p>Payment request link:<br> ' . $request_link . '</p>';
+                $output .= '<p>Payment request json:<br> ' . $payment_request_json . '</p>';
             }
             else
             {
-                $output .= '<p>You must log in to make the payment.</p>';
-                $output .= '<p>If you don\'t have an account, please register first.</p>';
-                $output .= '<p>After log-in you will need to return to this page and refresh the it.</p>';
+                $output .= 'Error in payment request.';
             }
-
-            $output .= '<br>';
-
-            $output .= '<h3>Or use another bank</h3>';
-            $output .= '<p>If you are already using another bank, you can copy the payment request file below, and paste it in your prefered bank´s payment page:</p>';
-            $output .= '<textarea rows="10" style="width:100%;">' . $cheque_request_json_bas64_prefix . '</textarea>';
-
-
-            $output .= '<br>';
-            $output .= '<br>';
-            $output .= '<h3>Developer\'s details</h3>';
-            $output .= '<p>Payment request link:<br> ' . $request_link . '</p>';
-            $output .= '<p>Payment request json:<br> ' . $payment_request_json . '</p>';
-
         }
         else
         {
@@ -1577,37 +1589,43 @@ function Payment()
     }
     elseif(!empty($_REQUEST['invoice']))
     {
-        $invoice = SanitizeInputText($_REQUEST['invoice']);
+        $payment_request_file = SanitizeInputText($_REQUEST['invoice']);
 
+        $cheque_request = DecodeAndVerifyPaymentFile($payment_request_file);
 
-        if(!strpos($invoice, '_') === false)
+        if(is_user_logged_in())
         {
-            $i = strrpos($invoice, '_')+1;
-            $invoice = substr($invoice, $i);
+            $output .= '<p>Make a payment:</p>';
+
+            $output .= DrawPaymentForm($cheque_request);
+
+            $output .= '<br><br>';
+            $output .= '<br><br>';
+            $output .= '<h3>Developer\'s details</h3>';
+            $output .= '<p>request:<br> ' . json_encode($cheque_request) . '</p>';
         }
-        $cheque_request_json_padded = base64_decode($invoice);
-        $cheque_request_json = trim($cheque_request_json_padded, ' ');
-        $cheque_request = json_decode($cheque_request_json, true);
-
-        $output .= '<p>Make a payment:</p>';
-
-        $output .= DrawPaymentForm($cheque_request);
-
-        $output .= '<br><br>';
-        $output .= '<br><br>';
-        $output .= '<h3>Developer\'s details</h3>';
-        $output .= '<p>request:<br> ' . json_encode($cheque_request) . '</p>';
-
+        else
+        {
+            $output .= 'Error. Not logged in.';
+        }
     }
     else
     {
-        $output .= '<h3>Make payment to Bitcoin Invoice</h3>';
-        $output .= '<p>Paste the Bitcoin Invoice file in this input form:</p>';
-        $output .= '<form>';
-        $output .= '<textarea name="invoice" rows="10" style="width:100%;"></textarea>';
-        $output .= '<br><br>';
-        $output .= '<input type="submit" value="Read Bitcoin Invoice file"/>';
-        $output .= '</form>';
+        if(is_user_logged_in())
+        {
+            $output .= '<h3>Make payment to Bitcoin Invoice</h3>';
+            $output .= '<p>Paste the Bitcoin Invoice file in this input form:</p>';
+            $output .= '<form>';
+            $output .= '<textarea name="invoice" rows="10" style="width:100%;"></textarea>';
+            $output .= '<br><br>';
+            $output .= '<input type="submit" value="Read Bitcoin Invoice file"/>';
+            $output .= '</form>';
+        }
+        else
+        {
+            $output .= '<h3>Make payment to Bitcoin Cheque Request</h3>';
+            $output .= 'You must log in to pay.';
+       }
 
     }
 
