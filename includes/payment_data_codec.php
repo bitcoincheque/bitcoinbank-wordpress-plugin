@@ -57,7 +57,7 @@ class PaymentDataFile
         return $signature;
     }
 
-    public function SetDataArray($data_array, $file_prefix = '', $private_key = null)
+    public function SetDataArray($data_array)
     {
         $this->json_data = json_encode($data_array);
         if(!empty($this->json_data))

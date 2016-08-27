@@ -75,6 +75,16 @@ function ConvertFloatToIntCurrency($amount_float, $currency_unit)
     return $amount_int;
 }
 
+function EncodeAndSignBitcoinCheque($cheque_data)
+{
+    $payment_file = new PaymentDataFile();
+    $payment_file->SetDataArray($cheque_data, 'PAYMENT_CHEQUE_');
+    $payment_file->SetFilePrefix('PAYMENT_CHEQUE');
+    $encoded_file = $payment_file->GetEncodedPaymentFile();
+
+    return $encoded_file;
+}
+
 function DecodeAndVerifyPaymentFile($payment_file)
 {
     $encoded_payment_file = new PaymentDataFile();
@@ -120,89 +130,106 @@ function ProcessAjaxValidateCheque()
 
 function ProcessAjaxRequestCheque()
 {
-    $amount_val = intval(SanitizeInputText($_REQUEST['amount']));
-    $currency_str = SanitizeInputText($_REQUEST['currency']);
-    $paylink_str = SanitizeInputText($_REQUEST['paylink']);
-    $receiver_name = SanitizeInputText($_REQUEST['receiver_name']);
-    $receiver_address = SanitizeInputText($_REQUEST['receiver_address']);
-    $receiver_url = SanitizeInputText($_REQUEST['receiver_url']);
-    $receiver_email = SanitizeInputText($_REQUEST['receiver_email']);
-    $business_no = SanitizeInputText($_REQUEST['business_no']);
-    $reg_country = SanitizeInputText($_REQUEST['reg_country']);
-    $receiver_wallet = SanitizeInputText($_REQUEST['receiver_wallet']);
-    $min_expire_sec = SanitizeInputText($_REQUEST['min_expire_sec']);
-    $max_escrow_sec = SanitizeInputText($_REQUEST['max_escrow_sec']);
-    $reference_str = SanitizeInputText($_REQUEST['ref']);
-    $account_id_val = intval(SanitizeInputText($_REQUEST['account']));
-    $account_password_str = SanitizeInputText($_REQUEST['passwd']);
-    $description = SanitizeInputText($_REQUEST['description']);
-
-    if($currency_str != 'BTC')
+    if((!empty($_REQUEST['username']))
+    and(!empty($_REQUEST['password']))
+    and(!empty($_REQUEST['account']))
+    and(!empty($_REQUEST['payment_request'])))
     {
-        echo 'Unsupported curreny';
-        die();
-    }
+        $username = SanitizeInputText($_REQUEST['username']);
+        $password = SanitizeInputText($_REQUEST['password']);
+        $account_val = SanitizeInputInteger($_REQUEST['account']);
+        $payment_request_file = SanitizeInputText($_REQUEST['payment_request']);
 
-    $issuer_account_id= new AccountIdTypeClass($account_id_val);
-    $account_password = new PasswordTypeClass($account_password_str);
-    $amount           = new ValueTypeClass($amount_val);
-    $reference        = new TextTypeClass($reference_str);
-    $receiver_name    = new NameTypeClass($receiver_name);
-    $receiver_address = new TextTypeClass($receiver_address);
-    $receiver_url     = new TextTypeClass($receiver_url);
-    $receiver_email   = new TextTypeClass($receiver_email);
-    $business_no      = new TextTypeClass($business_no);
-    $reg_country      = new TextTypeClass($reg_country);
-    $receiver_wallet  = new TextTypeClass($receiver_wallet);
-    $description      = new TextTypeClass($description);
+        $wp_user = get_user_by( 'login', $username );
+        if($wp_user != false)
+        {
+            if(wp_check_password( $password, $wp_user->data->user_pass, $wp_user->ID))
+            {
+                $wp_user_id_val = $wp_user->ID;
 
-    $expire_seconds = 300;
-    $escrow_seconds = 600;
+                $wp_user_id = new WpUserIdTypeClass($wp_user_id_val);
+                $account_id = new AccountIdTypeClass($account_val);
 
-    $cheque_handler = new ChequeHandlerClass();
+                $cheque_handler    = new ChequeHandlerClass();
+                if($cheque_handler->IsWpUserAccountOwner($wp_user_id, $account_id))
+                {
+                    $payment_request = DecodeAndVerifyPaymentFile($payment_request_file);
 
-    $cheque = $cheque_handler->IssueCheque(
-        $issuer_account_id,
-        $account_password,
-        $amount,
-        $expire_seconds,
-        $escrow_seconds,
-        $reference,
-        $receiver_name,
-        $receiver_address,
-        $receiver_url,
-        $receiver_email,
-        $business_no,
-        $reg_country,
-        $receiver_wallet,
-        $description
-    );
+                    $amount          = SanitizeInputInteger($payment_request['amount']);
+                    $currency_str     = SanitizeInputText($payment_request['currency']);
+                    $paylink_str      = SanitizeInputText($payment_request['paylink']);
+                    $receiver_name    = SanitizeInputText($payment_request['receiver_name']);
+                    $receiver_address = SanitizeInputText($payment_request['receiver_address']);
+                    $receiver_url     = SanitizeInputText($payment_request['receiver_url']);
+                    $receiver_email   = SanitizeInputText($payment_request['receiver_email']);
+                    $business_no      = SanitizeInputText($payment_request['business_no']);
+                    $reg_country      = SanitizeInputText($payment_request['reg_country']);
+                    $receiver_wallet  = SanitizeInputText($payment_request['receiver_wallet']);
+                    $min_expire_sec   = SanitizeInputInteger($payment_request['min_expire_sec']);
+                    $max_escrow_sec   = SanitizeInputInteger($payment_request['max_escrow_sec']);
+                    $reference_str    = SanitizeInputText($payment_request['ref']);
+                    $description      = SanitizeInputText($payment_request['description']);
 
-    if(!is_null($cheque))
-    {
-        //error_log('Issued   cheque:' . $cheque_json);
-        //error_log($cheque_json);
+                    $bank_user_id = $cheque_handler->GetBankUserIdOfWpUser($wp_user_id_val);
 
-        $response_data = array(
-            'result'    => 'OK',
-            'ver'       => '1',
-            'cheque'    => $cheque->GetBase64(),
-            'hash'      => '84784uj3489ryfj',
-            'status'    => 'UNCLAIMED'
-        );
+                    $cheque = $cheque_handler->IssueCheque($bank_user_id, $account_val, $amount, $min_expire_sec, $max_escrow_sec, $reference_str, $receiver_name, $receiver_address, $receiver_url, $receiver_email, $business_no, $reg_country, $receiver_wallet, $description);
 
-        echo json_encode($response_data);
+                    if( ! is_null($cheque))
+                    {
+                        //error_log('Issued   cheque:' . $cheque_json);
+                        //error_log($cheque_json);
+
+                        $cheque_data = $cheque->GetDataArrayPublicData();
+                        $cheque_file = EncodeAndSignBitcoinCheque($cheque_data);
+
+                        $response_data = array(
+                            'result' => 'OK',
+                            'ver'    => '1',
+                            'cheque' => $cheque_file,
+                            'status' => 'UNCLAIMED'
+                        );
+                    }
+                    else
+                    {
+                        $response_data = array(
+                            'result' => 'ERROR',
+                            'msg'    => 'Unknown error'
+                        );
+                    }
+                }
+                else
+                {
+                    $response_data = array(
+                        'result' => 'ERROR',
+                        'msg'    => 'Invalid account.'
+                    );
+                }
+            }
+            else
+            {
+                $response_data = array(
+                    'result' => 'ERROR',
+                    'msg'    => 'Wrong password.'
+                );
+            }
+        }
+        else
+        {
+            $response_data = array(
+                'result'    => 'ERROR',
+                'msg'       => 'Invalid username.'
+            );
+        }
     }
     else
     {
         $response_data = array(
             'result'    => 'ERROR',
-            'msg'       => 'Unknown error'
+            'msg'       => 'Invalid request.'
         );
-
-        echo json_encode($response_data);
     }
 
+    echo json_encode($response_data);
     die();
 }
 
@@ -616,171 +643,313 @@ function Withdraw()
 
 function ChequeDetails()
 {
+    $request_has_cheque_no=false;
+    $request_has_access_code=false;
+    $request_has_cheque_file=false;
+
+    $cheque_id_val = -1;
+    $access_code_str = '';
+    $payment_cheque_file_url_encoded = '';
+
+    $show_cheque_png = false;
+    $show_cheque_public_details = false;
+    $show_cheque_private_details = false;
+    $show_cheque_file = false;
+    $show_developers_details = false;
+    $show_error_message = false;
+    $ask_for_cheque_no_and_access_code = false;
+    $ask_for_cheque_file = false;
+
+    $error_message = '';
+
     $currency = 'BTC';
 
-    if ( !empty( $_REQUEST['cheque_no'] ) and  !empty( $_REQUEST['access_code'] ) )
-    {
-        $cheque_id_val   = SanitizeInputInteger($_REQUEST['cheque_no']);
-        $access_code_val = SanitizeInputText($_REQUEST['access_code']);
+    $output = '';
 
+    if(!empty($_REQUEST['cheque_no']))
+    {
+        $cheque_id_val = SanitizeInputInteger($_REQUEST['cheque_no']);
+        $request_has_cheque_no=true;
+    }
+
+    if(!empty($_REQUEST['access_code']))
+    {
+        $access_code_str = SanitizeInputText($_REQUEST['access_code']);
+        $request_has_access_code=true;
+    }
+
+    if(!empty($_REQUEST['cheque']))
+    {
+        $payment_cheque_file_url_encoded = SanitizeInputText($_REQUEST['cheque']);
+        $request_has_cheque_file=true;
+    }
+
+    if($request_has_cheque_no and $request_has_access_code)
+    {
         $cheque_id   = new ChequeIdTypeClass($cheque_id_val);
-        $access_code = new TextTypeClass($access_code_val);
+        $access_code = new TextTypeClass($access_code_str);
 
         $user_handler = new UserHandlerClass();
         $cheque       = $user_handler->GetCheque($cheque_id, $access_code);
 
         if($cheque != null)
         {
-            $html_table = new HtmlTableClass();
+            $cheque_public_data = $cheque->GetDataArray(true);
 
-            $html_table->AddLineItem('Cheque No.:');
-            $html_table->AddLineItem($cheque->GetChequeId()->GetString());
-            $html_table->RowFeed();
+            $show_cheque_png = true;
+            $show_cheque_public_details = true;
+            $show_cheque_file = true;
+            //$show_developers_details = true;
 
-            $html_table->AddLineItem('Value:');
-            $html_table->AddLineItem($cheque->GetValue()->GetFormattedCurrencyString($currency, true));
-            $html_table->RowFeed();
-
-            $html_table->AddLineItem('Cheque status:');
-            $html_table->AddLineItem($cheque->GetChequeState()->GetString());
-            $html_table->RowFeed();
-
-            $html_table->AddLineItem('Issuer Name:');
-            $html_table->AddLineItem($cheque->GetIssuerName()->GetString());
-            $html_table->RowFeed();
-
-            $html_table->AddLineItem('Issuer Address');
-            $html_table->AddLineItem($cheque->GetIssuerAddress()->GetString());
-            $html_table->RowFeed();
-
-            $html_table->AddLineItem('Issue date/time:');
-            $html_table->AddLineItem($cheque->GetIssueDateTime()->GetString());
-            $html_table->RowFeed();
-
-            $html_table->AddLineItem('Expire date/time:');
-            $html_table->AddLineItem($cheque->GetExpireDateTime()->GetString());
-            $html_table->RowFeed();
-
-            $html_table->AddLineItem('Escrow date/time:');
-            $html_table->AddLineItem($cheque->GetEscrowDateTime()->GetString());
-            $html_table->RowFeed();
-
-            $html_table->AddLineItem('Fixed fee:');
-            $html_table->AddLineItem($cheque->GetFixedFee()->GetFormattedCurrencyString($currency, true));
-            $html_table->RowFeed();
-
-            $html_table->AddLineItem('Collection fee');
-            $html_table->AddLineItem($cheque->GetCollectionFee()->GetFormattedCurrencyString($currency, true));
-            $html_table->RowFeed();
-
-            $html_table->AddLineItem('Will be stamped:');
-            $html_table->AddLineItem($cheque->GetStamp()->GetString());
-            $html_table->RowFeed();
-
-            $html_table->AddLineItem('Collection url:');
-            $html_table->AddLineItem($cheque->GetCollectUrl()->GetString());
-            $html_table->RowFeed();
-
-            $html_table->AddLineItem('Receiver\'s name:');
-            $html_table->AddLineItem($cheque->GetReceiverName()->GetString());
-            $html_table->RowFeed();
-
-            $address = $cheque->GetReceiverAddress()->GetString();
-            $address = str_replace("\r\n", '<br>', $address);
-            $html_table->AddLineItem('Receiver\'s address:');
-            $html_table->AddLineItem($address);
-            $html_table->RowFeed();
-
-            $html_table->AddLineItem('Receiver\'s web site:');
-            $html_table->AddLineItem($cheque->GetReceiverUrl()->GetString(), $cheque->GetReceiverUrl()->GetString());
-            $html_table->RowFeed();
-
-            $html_table->AddLineItem('Receiver\'s e-mail:');
-            $html_table->AddLineItem($cheque->GetReceiverEmail()->GetString());
-            $html_table->RowFeed();
-
-            $html_table->AddLineItem('Receiver\'s business no.:');
-            $html_table->AddLineItem($cheque->GetReceiverBusinessNo()->GetString());
-            $html_table->RowFeed();
-
-            $html_table->AddLineItem('Receiver\'s registration country:');
-            $html_table->AddLineItem($cheque->GetReceiverRegCountry()->GetString());
-            $html_table->RowFeed();
-
-            $html_table->AddLineItem('Receiver\'s Wallet:');
-            $html_table->AddLineItem($cheque->GetReceiverWallet()->GetString());
-            $html_table->RowFeed();
-
-            $html_table->AddLineItem('Receiver\'s reference:');
-            $html_table->AddLineItem($cheque->GetReceiverReference()->GetString());
-            $html_table->RowFeed();
-
-            $html_table->AddLineItem('Attached user\'s reference:');
-            $html_table->AddLineItem($cheque->GetUserReference()->GetString());
-            $html_table->RowFeed();
-
-            $html_table->AddLineItem('Attached user\'s name:');
-            $html_table->AddLineItem($cheque->GetUserName()->GetString());
-            $html_table->RowFeed();
-
-            $html_table->AddLineItem('Attached user\'s address:');
-            $html_table->AddLineItem($cheque->GetUserAddress()->GetString());
-            $html_table->RowFeed();
-
-            $html_table->AddLineItem('Access Code:');
-            $html_table->AddLineItem($cheque->GetAccessCode()->GetString());
-            $html_table->RowFeed();
-
-            $html_table->AddLineItem('Access Code:');
-            $html_table->AddLineItem($cheque->GetHash());
-            $html_table->RowFeed();
-
-            $html_table2 = new HtmlTableClass();
-            $html_table2->AddLineItem('Account No.:');
-            $html_table2->AddLineItem($cheque->GetOwnerAccountId()->GetString());
-            $html_table2->RowFeed();
-
-            $html_table2->AddLineItem('Description:');
-            $html_table2->AddLineItem($cheque->GetDescription()->GetString());
-            $html_table2->RowFeed();
-
-            $png_url = site_url() . '/wp-admin/admin-ajax.php?action=bcf_bitcoinbank_get_cheque_png&cheque_no=' . strval($cheque_id_val) . '&access_code=' . $access_code_val;
-
-            $output = '<a href="' . $png_url . '"><img src="' . $png_url . '" height="300" width="800" alt="Loading cheque image..."/></a>';
-            $output .= '<p>';
-            $output .= '<h3>Details for Cheque No. ' . strval($cheque_id_val) . '</h3>';
-            $output .= '<b>Public data:</b><br>This information is included in cheque and sent to cheque receiver.';
-            $output .= $html_table->GetHtmlTable();
-            $output .= '<b>Private data:</b><br>Information not included in the cheque.';
-            $output .= $html_table2->GetHtmlTable();
-
-            $output .= '<p>';
-
-            $output .= '<br>';
-            $output .= '<br>';
-            $output .= '<br>';
-            $output .= '<hr>';
-            $output .= '<h3>Developer\'s details</h3>';
-            $output .= '<b>Bitcoin Cheque File (Base64 encoding of the JSON format):</b>';
-            $html_table3   = new HtmlTableClass();
-            $html_table3->AddLineItem($cheque->GetBase64(), '', 'style="word-wrap:break-word; overflow-wrap:nowrap; hyphens:none;"');
-            $html_table3->RowFeed();
-            $output .= '<p>';
-            $output .= $html_table3->GetHtmlTable('style="table-layout: fixed; width: 100%"');
-
-            $output .= '<b>Bitcoin Cheque in JSON format:</b>';
-            $filtered_text = SanitizeInputText($cheque->GetJson());
-            $html_table4   = new HtmlTableClass();
-            $html_table4->AddLineItem($filtered_text, '', 'style="word-wrap:break-word; overflow-wrap:nowrap; hyphens:none;"');
-            $html_table4->RowFeed();
-            $output .= '<p>';
-            $output .= $html_table4->GetHtmlTable('style="table-layout: fixed; width: 100%"');
+            if(is_user_logged_in())
+            {
+                //$cheque_private_data = $cheque->GetDataArray(false);
+                //$show_cheque_private_details = true;
+            }
         }
         else
         {
-            $output = 'Invalid cheque request.';
+            $error_message = 'Invalid Cheque No. or Access Code.';
+            $show_error_message = true;
+
+            $ask_for_cheque_no_and_access_code = true;
+            $ask_for_cheque_file = true;
         }
     }
+    elseif($request_has_cheque_file)
+    {
+        $payment_cheque_file = html_entity_decode($payment_cheque_file_url_encoded);
+        $cheque_public_data = DecodeAndVerifyPaymentFile($payment_cheque_file);
+
+        $cheque_id_val = $cheque_public_data['cheque_id'];
+        $access_code_str = $cheque_public_data['access_code'];
+
+        $show_cheque_png = true;
+        $show_cheque_public_details = true;
+        //$show_cheque_private_details = true;
+        //$show_developers_details = true;
+    }
+    else
+    {
+        $error_message = 'Invalid cheque request.';
+        $show_error_message = true;
+        $ask_for_cheque_no_and_access_code = true;
+        $ask_for_cheque_file = true;
+    }
+
+    if($show_error_message)
+    {
+        $output .= $error_message;
+    }
+
+    if($show_cheque_png)
+    {
+        $png_url = site_url() . '/wp-admin/admin-ajax.php?action=bcf_bitcoinbank_get_cheque_png&cheque_no=' . strval($cheque_id_val) . '&access_code=' . $access_code_str;
+        $output .= '<a href="' . $png_url . '"><img src="' . $png_url . '" height="300" width="800" alt="Loading cheque image..."/></a>';
+    }
+
+    if($show_cheque_public_details)
+    {
+        $html_table = new HtmlTableClass();
+
+        foreach($cheque_public_data as $key => $field)
+        {
+            if(gettype($field) == 'string')
+            {
+
+            }
+            elseif(gettype($field) == 'integer')
+            {
+                $field = strval($field);
+            }
+            else
+            {
+                die();
+            }
+
+            $html_table->AddLineItem($key);
+            $html_table->AddLineItem($field);
+            $html_table->RowFeed();
+        }
+
+        /*
+        $html_table->AddLineItem('Cheque No.:');
+        $html_table->AddLineItem($cheque_public_data['cheque_id']);
+        $html_table->RowFeed();
+
+        $html_table->AddLineItem('Value:');
+        $html_table->AddLineItem($cheque->GetValue()->GetFormattedCurrencyString($currency, true));
+        $html_table->RowFeed();
+
+        $html_table->AddLineItem('Cheque status:');
+        $html_table->AddLineItem($cheque->GetChequeState()->GetString());
+        $html_table->RowFeed();
+
+        $html_table->AddLineItem('Issuer Name:');
+        $html_table->AddLineItem($cheque->GetIssuerName()->GetString());
+        $html_table->RowFeed();
+
+        $html_table->AddLineItem('Issuer Address');
+        $html_table->AddLineItem($cheque->GetIssuerAddress()->GetString());
+        $html_table->RowFeed();
+
+        $html_table->AddLineItem('Issue date/time:');
+        $html_table->AddLineItem($cheque->GetIssueDateTime()->GetString());
+        $html_table->RowFeed();
+
+        $html_table->AddLineItem('Expire date/time:');
+        $html_table->AddLineItem($cheque->GetExpireDateTime()->GetString());
+        $html_table->RowFeed();
+
+        $html_table->AddLineItem('Escrow date/time:');
+        $html_table->AddLineItem($cheque->GetEscrowDateTime()->GetString());
+        $html_table->RowFeed();
+
+        $html_table->AddLineItem('Fixed fee:');
+        $html_table->AddLineItem($cheque->GetFixedFee()->GetFormattedCurrencyString($currency, true));
+        $html_table->RowFeed();
+
+        $html_table->AddLineItem('Collection fee');
+        $html_table->AddLineItem($cheque->GetCollectionFee()->GetFormattedCurrencyString($currency, true));
+        $html_table->RowFeed();
+
+        $html_table->AddLineItem('Will be stamped:');
+        $html_table->AddLineItem($cheque->GetStamp()->GetString());
+        $html_table->RowFeed();
+
+        $html_table->AddLineItem('Collection url:');
+        $html_table->AddLineItem($cheque->GetCollectUrl()->GetString());
+        $html_table->RowFeed();
+
+        $html_table->AddLineItem('Receiver\'s name:');
+        $html_table->AddLineItem($cheque->GetReceiverName()->GetString());
+        $html_table->RowFeed();
+
+        $address = $cheque->GetReceiverAddress()->GetString();
+        $address = str_replace("\r\n", '<br>', $address);
+        $html_table->AddLineItem('Receiver\'s address:');
+        $html_table->AddLineItem($address);
+        $html_table->RowFeed();
+
+        $html_table->AddLineItem('Receiver\'s web site:');
+        $html_table->AddLineItem($cheque->GetReceiverUrl()->GetString(), $cheque->GetReceiverUrl()->GetString());
+        $html_table->RowFeed();
+
+        $html_table->AddLineItem('Receiver\'s e-mail:');
+        $html_table->AddLineItem($cheque->GetReceiverEmail()->GetString());
+        $html_table->RowFeed();
+
+        $html_table->AddLineItem('Receiver\'s business no.:');
+        $html_table->AddLineItem($cheque->GetReceiverBusinessNo()->GetString());
+        $html_table->RowFeed();
+
+        $html_table->AddLineItem('Receiver\'s registration country:');
+        $html_table->AddLineItem($cheque->GetReceiverRegCountry()->GetString());
+        $html_table->RowFeed();
+
+        $html_table->AddLineItem('Receiver\'s Wallet:');
+        $html_table->AddLineItem($cheque->GetReceiverWallet()->GetString());
+        $html_table->RowFeed();
+
+        $html_table->AddLineItem('Receiver\'s reference:');
+        $html_table->AddLineItem($cheque->GetReceiverReference()->GetString());
+        $html_table->RowFeed();
+
+        $html_table->AddLineItem('Attached user\'s reference:');
+        $html_table->AddLineItem($cheque->GetUserReference()->GetString());
+        $html_table->RowFeed();
+
+        $html_table->AddLineItem('Attached user\'s name:');
+        $html_table->AddLineItem($cheque->GetUserName()->GetString());
+        $html_table->RowFeed();
+
+        $html_table->AddLineItem('Attached user\'s address:');
+        $html_table->AddLineItem($cheque->GetUserAddress()->GetString());
+        $html_table->RowFeed();
+
+        $html_table->AddLineItem('Access Code:');
+        $html_table->AddLineItem($cheque->GetAccessCode()->GetString());
+        $html_table->RowFeed();
+
+        $html_table->AddLineItem('Hash:');
+        $html_table->AddLineItem($cheque->GetHash());
+        $html_table->RowFeed();
+        */
+
+        $output .= '<p>';
+        $output .= '<h3>Details for Cheque No. ' . strval($cheque_id_val) . '</h3>';
+        $output .= '<b>Public data:</b><br>This information is included in cheque and sent to cheque receiver.';
+        $output .= $html_table->GetHtmlTable();
+    }
+
+    if($show_cheque_private_details)
+    {
+        $html_table2 = new HtmlTableClass();
+        $html_table2->AddLineItem('Account No.:');
+        $html_table2->AddLineItem($cheque->GetOwnerAccountId()->GetString());
+        $html_table2->RowFeed();
+
+        $html_table2->AddLineItem('Description:');
+        $html_table2->AddLineItem($cheque->GetDescription()->GetString());
+        $html_table2->RowFeed();
+
+        $output .= '<b>Private data:</b><br>Information not included in the cheque.';
+        $output .= $html_table2->GetHtmlTable();
+    }
+
+    if($show_cheque_file)
+    {
+        $output .= '<h3>Bitcoin Cheque File</h3>';
+        $output .= 'This is the Bitcoin Cheque File sent to the receiver.';
+
+        $cheque_data = $cheque->GetDataArray(true);
+        $cheque_file = EncodeAndSignBitcoinCheque($cheque_data);
+        $output .= '<textarea name="cheque" rows="10" style="width:100%;">'.$cheque_file.'</textarea>';
+    }
+
+
+    if($show_developers_details)
+    {
+        $output .= '<br>';
+        $output .= '<hr>';
+        $output .= '<h3>Developer\'s details</h3>';
+        $output .= '<b>Bitcoin Cheque in JSON format:</b>';
+        $filtered_text = SanitizeInputText($cheque->GetJson());
+        $html_table4   = new HtmlTableClass();
+        $html_table4->AddLineItem($filtered_text, '', 'style="word-wrap:break-word; overflow-wrap:nowrap; hyphens:none;"');
+        $html_table4->RowFeed();
+        $output .= '<p>';
+        $output .= $html_table4->GetHtmlTable('style="table-layout: fixed; width: 100%"');
+    }
+
+    if($ask_for_cheque_no_and_access_code)
+    {
+        $output .= '<h3>Enter cheque details</h3>';
+        $output .= 'Please enter Cheque No. and Access Code:';
+
+        $output .= '<form name="bcf_profile_form">';
+        $output .= '<table style="border-style:none;" width="100%"><tr>';
+        $output .= '<td style="border-style:none;">Cheque No.:</td><td style="border-style:none;"><input type="text" value="" name="cheque_no"/></td>';
+        $output .= '</tr><tr>';
+        $output .= '<td style="border-style:none;">Access Code:</td><td style="border-style:none;"><input type="text" value="" name="access_code" /></td>';
+        $output .= '</tr><tr>';
+        $output .= '<td style="border-style:none;"></td><td style="border-style:none;"><a href=""><input type="submit" value="Look up cheque"/></a></td>';
+        $output .= '</tr></table>';
+        $output .= '</form>';
+        $output .= '<br>';
+    }
+
+    if($ask_for_cheque_file)
+    {
+        $output .= '<h3>Paste Bitcoin Cheque File</h3>';
+        $output .= '<p>If you have an Bitcoin Cheque File (looking like a random text starting with the "PAYMENT_CHEQUE", you can paste the text in form below:</p>';
+        $output .= '<form>';
+        $output .= '<textarea name="cheque" rows="10" style="width:100%;"></textarea>';
+        $output .= '<br><br>';
+        $output .= '<input type="submit" value="Read Bitcoin Cheque File"/>';
+        $output .= '</form>';
+    }
+
 
     return $output;
 }
@@ -946,7 +1115,14 @@ function DrawCheque()
             $output .= '* Required information.';
             $output .= '<br>';
             $output .= '<br>';
-            $output .= '<b>Or copy the below and send it yourself</b>';
+            $output .= '<h3>Or copy the below and send it yourself</h3>';
+
+            $cheque_data = $cheque->GetDataArray(true);
+            $cheque_file = EncodeAndSignBitcoinCheque($cheque_data);
+
+            $output .= '<textarea name="payment_request" rows="10" style="width:100%;">'.$cheque_file.'</textarea>';
+
+
 
         }
         else if( !empty($_REQUEST['send_email'])
@@ -1448,7 +1624,7 @@ function Payment()
                     $payment_request = json_decode($payment_request_json, true);
                     if(!empty($payment_request))
                     {
-                        $payment_request_file = $payment_request['cheque_request'];
+                        $payment_request_file = $payment_request['payment_request'];
 
                         $cheque_request = DecodeAndVerifyPaymentFile($payment_request_file);
                     }
@@ -1472,8 +1648,8 @@ function Payment()
 
                 $output .= '<br>';
 
-                $output .= '<h3>Or use another bank</h3>';
-                $output .= '<p>If you are already using another bank, you can copy the payment request file below, and paste it in your prefered bank´s payment page:</p>';
+                $output .= '<h3>Or pay from another bank</h3>';
+                $output .= '<p>If you are already using another bank, you can copy the payment request data text below, and paste it in your prefered bank´s payment page:</p>';
                 $output .= '<textarea rows="10" style="width:100%;">' . $payment_request_file . '</textarea>';
 
 
@@ -1528,14 +1704,9 @@ function Payment()
 
             if($cheque != null)
             {
-                $cheque_id_str   = $cheque->GetChequeId()->GetString();
-                $access_code_str = $cheque->GetAccessCode()->GetString();
-
-                $cheque_base64 = $cheque->GetBase64();
-                //$cheque_json_encoded = rawurlencode($cheque_json);
-                $cheque_base64_url_encoded = urlencode ($cheque_base64);
-
-                $api_url = $paylink_str . '&cheque=' . $cheque_base64_url_encoded;
+                $payment_cheque_file = EncodeAndSignBitcoinCheque($cheque->GetDataArray(true));
+                $payment_cheque_file_url_encoded = urlencode ($payment_cheque_file);
+                $api_url = $paylink_str . '&cheque=' . $payment_cheque_file_url_encoded;
 
                 $api_response = wp_remote_get( $api_url );
                 if(wp_remote_retrieve_response_code($api_response) == 200)
@@ -1587,9 +1758,9 @@ function Payment()
             $output .= 'Error. Not logged in.';
         }
     }
-    elseif(!empty($_REQUEST['invoice']))
+    elseif(!empty($_REQUEST['payment_request']))
     {
-        $payment_request_file = SanitizeInputText($_REQUEST['invoice']);
+        $payment_request_file = SanitizeInputText($_REQUEST['payment_request']);
 
         $cheque_request = DecodeAndVerifyPaymentFile($payment_request_file);
 
@@ -1613,12 +1784,12 @@ function Payment()
     {
         if(is_user_logged_in())
         {
-            $output .= '<h3>Make payment to Bitcoin Invoice</h3>';
-            $output .= '<p>Paste the Bitcoin Invoice file in this input form:</p>';
+            $output .= '<h3>Make a payment to a Bitcoin Payment Request</h3>';
+            $output .= '<p>Copy and paste in a Bitcoin Payment Request data text in this input form:</p>';
             $output .= '<form>';
-            $output .= '<textarea name="invoice" rows="10" style="width:100%;"></textarea>';
+            $output .= '<textarea name="payment_request" rows="10" style="width:100%;"></textarea>';
             $output .= '<br><br>';
-            $output .= '<input type="submit" value="Read Bitcoin Invoice file"/>';
+            $output .= '<input type="submit" value="Read Bitcoin Payment Request data text"/>';
             $output .= '</form>';
         }
         else
@@ -1647,6 +1818,103 @@ function ActivatePlugin()
 
 function DeactivatePlugin()
 {
+}
+
+function Testpage()
+{
+    //return phpinfo();
+
+    $output = '<p>openssl_pkey_new</p>';
+
+    $privateKey = openssl_pkey_new();
+
+    while($message = openssl_error_string()){
+        $output .= 'openssl_error_string:' . $message.'<br />';
+    }
+
+
+    $config = array(
+        "digest_alg" => "sha512",
+        "private_key_bits" => 4096,
+        "private_key_type" => OPENSSL_ALGO_MD5,
+    );
+
+    $output = '<p>openssl_pkey_new</p>';
+
+    // Create the private and public key
+    //$res = openssl_pkey_new($config);
+    $res = openssl_pkey_new($config);
+
+    while($message = openssl_error_string()){
+        $output .= 'openssl_error_string:' . $message.'<br />';
+    }
+
+    $output .= '<br>';
+    $output .= 'Res: ' . $res;
+    $output .= '<br>';
+    $output .= 'Error: ' . openssl_error_string();
+    $output .= '<br>';
+
+    // Extract the private key from $res to $privKey
+    if(openssl_pkey_export($res, $pkeyid))
+    {
+        $output .= 'Eksport OK<br>';
+
+    }
+    else{
+        $output .= 'Eksport error<br>';
+    }
+    while($message = openssl_error_string()){
+        $output .= 'openssl_error_string:' . $message.'<br />';
+    }
+
+    // Extract the public key from $res to $pubKey
+    //$pubKey = openssl_pkey_get_details($res);
+    //$privKey = $pubKey["key"];
+
+    $data = 'Hello world!';
+
+    $output .= '<br>';
+    $output .= 'Data: ' . $data . '<br>';
+
+    if(openssl_sign($data, $signature, $pkeyid))
+    {
+        $signature_str = base64_encode($signature);
+        $output .= 'Sign: ' . $signature_str . '<br>';
+
+    }
+    else{
+        $output .= 'Sign error<br>';
+
+    }
+    while($message = openssl_error_string()){
+        $output .= 'openssl_error_string:' . $message.'<br />';
+    }
+
+    $output .= 'Get public key<br>';
+    $details = openssl_pkey_get_details($pkeyid);
+    $public_key_res = openssl_pkey_get_public($details['key']);
+
+    $ok = openssl_verify($data, $signature, $public_key_res);
+    if($ok)
+    {
+        $output .= "Data OK<br>";
+    }
+    else{
+        $output .= "Signature error<br>";
+    }
+
+    // Encrypt the data to $encrypted using the public key
+    //openssl_public_encrypt($data, $encrypted, $pubKey);
+
+    //$output .= 'Encrypted: ' . $encrypted;
+
+    // Decrypt the data using the private key and store the results in $decrypted
+    //openssl_private_decrypt($encrypted, $decrypted, $privKey);
+
+    //$output .= 'Decrypted: ' . $decrypted;
+
+    return $output;
 }
 
 /* Add AJAX handlers */
@@ -1681,6 +1949,8 @@ add_shortcode('bcf_bitcoinbank_draw_cheque', 'BCF_BitcoinBank\DrawCheque');
 add_shortcode('bcf_bitcoinbank_claim_cheque', 'BCF_BitcoinBank\ClaimCheque');
 add_shortcode('bcf_bitcoinbank_profile', 'BCF_BitcoinBank\UserProfile');
 add_shortcode('bcf_bitcoinbank_payment', 'BCF_BitcoinBank\Payment');
+
+add_shortcode('bcf_testing1', 'BCF_BitcoinBank\Testpage');
 
 register_activation_hook(__FILE__, 'BCF_BitcoinBank\ActivatePlugin');
 register_deactivation_hook(__FILE__, 'BCF_BitcoinBank\DeactivatePlugin');

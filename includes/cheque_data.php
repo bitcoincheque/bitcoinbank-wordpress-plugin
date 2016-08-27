@@ -740,10 +740,48 @@ class ChequeDataClass extends DataBaseClass
         return $has_expired;
     }
 
+    public function GetDataArrayPublicData()
+    {
+        $data_array = array();
+
+        foreach($this->MetaData as $key => $attributes)
+        {
+            $data_object = $this->DataObjects[$key];
+            if($data_object->HasValidData())
+            {
+                if($attributes['public_data'] == true)
+                {
+                    $data_array[ $key ] = $data_object->GetString();
+                }
+            }
+        }
+
+        return $data_array;
+    }
+
+    public function GetDataArrayPrivateData()
+    {
+        $data_array = array();
+
+        foreach($this->MetaData as $key => $attributes)
+        {
+            $data_object = $this->DataObjects[$key];
+            if($data_object->HasValidData())
+            {
+                if($attributes['public_data'] == false)
+                {
+                    $data_array[ $key ] = $data_object->GetString();
+                }
+            }
+        }
+
+        return $data_array;
+    }
+
+
     public function GetJson()
     {
-        $public_data_only = true;
-        $data_array = $this->GetDataArray($public_data_only);
+        $data_array = $this->GetDataArrayPublicData();
 
         $json = json_encode($data_array);
 
