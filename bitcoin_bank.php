@@ -53,7 +53,15 @@ function SanitizeInputText($text)
 
 function SanitizeInputInteger($text)
 {
-    $value = intval($text);
+    if (preg_match('/^[1-9][0-9]{0,15}$/', $text))
+    {
+        $value = intval($text);
+    }
+    else
+    {
+        $value = null;
+    }
+
     return $value;
 }
 
@@ -97,30 +105,75 @@ function DecodeAndVerifyPaymentFile($payment_file)
 
 function ProcessAjaxValidateCheque()
 {
-    $cheque_handler = new ChequeHandlerClass();
+    $cheque_no = 0;
+    $access_code = '';
+    $has_hash = '';
 
-    $cheque_base64_uri_encoded = SanitizeInputText($_REQUEST['cheque']);
-    $cheque_base64 = urldecode($cheque_base64_uri_encoded);
-    $cheque_json = base64_decode($cheque_base64);
-    $cheque = json_decode($cheque_json, true);
+    $has_cheque_no = false;
+    $has_access_code = false;
+    $has_hash = false;
 
-    $result_msg = $cheque_handler->ValidateCheque($cheque, true);
-
-    //error_log('cheque valid error:' . $result_msg);
-    if($result_msg == 'OK')
+    if(!empty($_POST['cheque_no']))
     {
-        $response_data = array(
-            'serial_no' => $cheque['serial_no'],
-            'status'    => 'VALID',
-            'errors'    => $result_msg
-        );
+        $cheque_no = SanitizeInputInteger($_POST['cheque_no']);
+        $has_cheque_no = true;
+    }
+
+    if(!empty($_POST['access_code']))
+    {
+        $access_code = SanitizeInputText($_POST['access_code']);
+        $has_access_code = true;
+    }
+
+    if(!empty($_POST['hash']))
+    {
+        $hash = SanitizeInputText($_POST['hash']);
+        $has_hash = true;
+    }
+
+    if($has_cheque_no and $has_access_code and $has_hash)
+    {
+        $cheque_handler = new ChequeHandlerClass();
+        $result = $cheque_handler->ValidateCheque($cheque_no, $access_code, $hash);
+
+        if($result == 'OK')
+        {
+            $response_data = array(
+                'result'    => 'OK',
+                'message'   => '',
+                'cheque_no' => strval($cheque_no)
+            );
+        }
+        else
+        {
+            $response_data = array(
+                'result'    => 'ERROR',
+                'message'   => 'Invalid access.' . $result,
+                'cheque_no' => strval($cheque_no)
+            );
+        }
     }
     else
     {
+        $msg = 'Data field missing in validation request [';
+        if(!$has_cheque_no)
+        {
+            $msg .= 'cheque_no, ';
+        }
+        if(!$has_access_code)
+        {
+            $msg .= 'access_code, ';
+        }
+        if(!$has_hash)
+        {
+            $msg .= 'hash, ';
+        }
+        $msg .= ']';
+
+
         $response_data = array(
-            'serial_no' => $cheque['serial_no'],
-            'status'    => 'INVALID',
-            'errors'    => $result_msg
+            'result'    => 'ERROR',
+            'message'   => $msg
         );
     }
 
@@ -128,17 +181,18 @@ function ProcessAjaxValidateCheque()
     die();
 }
 
+
 function ProcessAjaxRequestCheque()
 {
-    if((!empty($_REQUEST['username']))
-    and(!empty($_REQUEST['password']))
-    and(!empty($_REQUEST['account']))
-    and(!empty($_REQUEST['payment_request'])))
+    if((!empty($_POST['username']))
+    and(!empty($_POST['password']))
+    and(!empty($_POST['account']))
+    and(!empty($_POST['payment_request'])))
     {
-        $username = SanitizeInputText($_REQUEST['username']);
-        $password = SanitizeInputText($_REQUEST['password']);
-        $account_val = SanitizeInputInteger($_REQUEST['account']);
-        $payment_request_file = SanitizeInputText($_REQUEST['payment_request']);
+        $username = SanitizeInputText($_POST['username']);
+        $password = SanitizeInputText($_POST['password']);
+        $account_val = SanitizeInputInteger($_POST['account']);
+        $payment_request_file = SanitizeInputText($_POST['payment_request']);
 
         $wp_user = get_user_by( 'login', $username );
         if($wp_user != false)
@@ -235,11 +289,11 @@ function ProcessAjaxRequestCheque()
 
 function ProcessAjaxGetAccountList()
 {
-    if(!empty($_REQUEST['username'])
-        and (!empty($_REQUEST['password'])))
+    if(!empty($_POST['username'])
+        and (!empty($_POST['password'])))
     {
-        $username = SanitizeInputText($_REQUEST['username']);
-        $password = SanitizeInputText($_REQUEST['password']);
+        $username = SanitizeInputText($_POST['username']);
+        $password = SanitizeInputText($_POST['password']);
 
         $wp_user = get_user_by( 'login', $username );
         if($wp_user != false)
@@ -325,9 +379,9 @@ function ProcessAjaxGetAccountList()
 
 function ProcessAjaxGetAccountDetails()
 {
-    if(!empty($_REQUEST['account']))
+    if(!empty($_POST['account']))
     {
-        $account = SanitizeInputInteger($_REQUEST['account']);
+        $account = SanitizeInputInteger($_POST['account']);
 
         $response_data = array(
             'result'    => 'OK',
@@ -350,13 +404,13 @@ function ProcessAjaxGetAccountDetails()
 
 function ProcessAjaxGetTransactionList()
 {
-    if(!empty($_REQUEST['username'])
-       and (!empty($_REQUEST['password']))
-       and (!empty($_REQUEST['account'])))
+    if(!empty($_POST['username'])
+       and (!empty($_POST['password']))
+       and (!empty($_POST['account'])))
     {
-        $username_str = SanitizeInputText($_REQUEST['username']);
-        $password_str = SanitizeInputText($_REQUEST['password']);
-        $account_int = SanitizeInputInteger($_REQUEST['account']);
+        $username_str = SanitizeInputText($_POST['username']);
+        $password_str = SanitizeInputText($_POST['password']);
+        $account_int = SanitizeInputInteger($_POST['account']);
 
         $wp_user = get_user_by('login', $username_str);
         if($wp_user != false)
@@ -1635,27 +1689,46 @@ function Payment()
             {
                 if(is_user_logged_in())
                 {
-                    $output .= 'A payment has been requested.';
-
+                    $output .= '<p>A payment has been requested. Your have 3 options:</p>';
+                    $output .= '<h3>Option 1: Pay now from you bank account</h3>';
+                    $output .= '<p>';
                     $output .= DrawPaymentForm($cheque_request);
+                    $output .= '</p>';
+
                 }
                 else
                 {
+                    $output .= '<p>A payment has been requested. Your have 3 options:</p>';
+                    $output .= '<h3>Option 1: Pay now from you bank account</h3>';
+                    $output .= '<p>';
                     $output .= '<p>You must log in to make the payment.</p>';
                     $output .= '<p>If you don\'t have an account, please register first.</p>';
                     $output .= '<p>After log-in you will need to return to this page and refresh the it.</p>';
+                    $output .= '</p>';
+
                 }
 
                 $output .= '<br>';
 
-                $output .= '<h3>Or pay from another bank</h3>';
+                $output .= '<h3>Option 2: Download the Bitcoin Banking App</h3>';
+                $output .= '<p>The Bitcoin Banking App allow you to make instant one-click payments.<br>';
+                $output .= 'Note! Currently it is only made available for Chrome browser.</p>';
+                $app_image = site_url() . '/wp-content/plugins/bitcoinbank-wordpress-plugin/img/transactions_small.png';
+                $output .= '<p><a href="https://chrome.google.com/webstore/detail/bitcoin-banking-app/pgloifjeoelfeolhficbcmhdfeepceoc" target="_blank"><img src="'.$app_image.'"/></a></p>';
+                $output .= '<p><a href="https://chrome.google.com/webstore/detail/bitcoin-banking-app/pgloifjeoelfeolhficbcmhdfeepceoc" target="_blank">Go to Chrome Marketplace and download Bitcoin Banking App</a></p>';
+
+                $output .= '<br>';
+
+                $output .= '<h3>Option 3: Pay from another bank</h3>';
                 $output .= '<p>If you are already using another bank, you can copy the payment request data text below, and paste it in your prefered bank´s payment page:</p>';
-                $output .= '<textarea rows="10" style="width:100%;">' . $payment_request_file . '</textarea>';
+                $output .= '<textarea rows="13" style="width:100%;">' . $payment_request_file . '</textarea>';
 
 
                 $output .= '<br>';
                 $output .= '<br>';
-                $output .= '<h3>Developer\'s details</h3>';
+                $output .= '<br>';
+                $output .= '<br>';
+                $output .= '<h5>Developer\'s details</h5>';
                 $output .= '<p>Payment request link:<br> ' . $request_link . '</p>';
                 $output .= '<p>Payment request json:<br> ' . $payment_request_json . '</p>';
             }
@@ -1702,51 +1775,46 @@ function Payment()
             $user_handler = new UserHandlerClass();
             $cheque = $user_handler->IssueCheque($account_id, $amount, $expire_seconds, $escrow_seconds, $receiver_name, $lock_address, $receiver_reference);
 
+            $hand = new ChequeHandlerClass();
+
             if($cheque != null)
             {
                 $payment_cheque_file = EncodeAndSignBitcoinCheque($cheque->GetDataArray(true));
                 $payment_cheque_file_url_encoded = urlencode ($payment_cheque_file);
-                $api_url = $paylink_str . '&cheque=' . $payment_cheque_file_url_encoded;
+                $api_url = $paylink_str;
 
-                $api_response = wp_remote_get( $api_url );
-                if(wp_remote_retrieve_response_code($api_response) == 200)
+
+                $args = array(
+                    'body' => array(
+                        'action'    => 'send_payment_cheque',
+                        'cheque'    => $payment_cheque_file_url_encoded
+                    )
+                );
+
+                $response = wp_remote_post( $api_url, $args );
+
+                if(is_wp_error($response))
                 {
-                    $json = wp_remote_retrieve_body( $api_response );
+                    $output .= 'Error: Illegal response from receiver.<br>';
+                }
+                else
+                {
+                    $answer = json_decode($response['body'], true);
 
-                    if(empty($json))
+                    if($answer['result'] == 'OK')
                     {
-                        $output .= 'Error: JSON object empty.<br>';
+                        $return_link = $answer['return_link'];
+
+                        $output .= '<p>Payment OK.</p>';
+                        $output .= '<a href="' . $return_link . '"><input type="submit" value="Return to site"/></a>';
                     }
                     else
                     {
-                        $json_decoded = json_decode($json, true);
-                        if($json_decoded)
-                        {
-                            if($json_decoded['pay_status'] == 'OK')
-                            {
-                                $return_link = $json_decoded['return_link'];
-
-                                $output .= '<p>Payment OK.</p>';
-                                $output .= '<a href="' . $return_link . '"><input type="submit" value="Return to site"/></a>';
-                            }
-                            else
-                            {
-                                $output .= '<p>Payment error.</p>';
-                                $output .= '<p>Message from receiver:<br>' . $json;
-                            }
-                        }
-                        else
-                        {
-                            $output .= 'Error: Can not decode JSON object.<br>';
-
-                        }
-
-                        $output .= '<br><br><h3>Advanced information:</h3>';
-                        $output .= 'Get request with cheque:<br> ' . $api_url . '<br><br>';
-                        $output .= 'Response back from site:<br> '. $json . '<br>';
+                        $output .= '<p>Payment error.</p>';
+                        $output .= '<p>Pay_status:<br>' . $answer['result'];
+                        $output .= '<p>Message:<br>' . $answer['message'];
                     }
                 }
-
             }
             else
             {
@@ -1797,7 +1865,6 @@ function Payment()
             $output .= '<h3>Make payment to Bitcoin Cheque Request</h3>';
             $output .= 'You must log in to pay.';
        }
-
     }
 
     return $output;
@@ -1920,14 +1987,12 @@ function Testpage()
 /* Add AJAX handlers */
 // Note! Need to have both actions below, "nopriv" and other! Otherwise wordpress will not return json object.
 
-// Can be tested i browser: /wp-admin/admin-ajax.php?action=bcf_bitcoinbank_process_ajax_request_cheque&account=3&amount=762&passwd=abc123&ref=47
-add_action('wp_ajax_nopriv_bcf_bitcoinbank_process_ajax_request_cheque', 'BCF_BitcoinBank\ProcessAjaxRequestCheque');
-add_action('wp_ajax_bcf_bitcoinbank_process_ajax_request_cheque', 'BCF_BitcoinBank\ProcessAjaxRequestCheque');
+add_action('wp_ajax_nopriv_request_cheque', 'BCF_BitcoinBank\ProcessAjaxRequestCheque');
+add_action('wp_ajax_request_cheque', 'BCF_BitcoinBank\ProcessAjaxRequestCheque');
 
-add_action('wp_ajax_nopriv_bcf_bitcoinbank_process_ajax_validate_cheque', 'BCF_BitcoinBank\ProcessAjaxValidateCheque');
-add_action('wp_ajax_bcf_bitcoinbank_process_ajax_validate_cheque', 'BCF_BitcoinBank\ProcessAjaxValidateCheque');
+add_action('wp_ajax_nopriv_validate_payment_cheque', 'BCF_BitcoinBank\ProcessAjaxValidateCheque');
+add_action('wp_ajax_validate_payment_cheque', 'BCF_BitcoinBank\ProcessAjaxValidateCheque');
 
-// Can be tested i browser: /wp-admin/admin-ajax.php?action=bcf_bitcoinbank_get_cheque_png
 add_action('wp_ajax_nopriv_bcf_bitcoinbank_get_cheque_png', 'BCF_BitcoinBank\ProcessAjaxCreatePngCheque');
 add_action('wp_ajax_bcf_bitcoinbank_get_cheque_png', 'BCF_BitcoinBank\ProcessAjaxCreatePngCheque');
 

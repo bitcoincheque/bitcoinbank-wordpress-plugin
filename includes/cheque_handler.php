@@ -67,10 +67,10 @@ class ChequeHandlerClass extends AccountingClass
         )
         {
             $bank_user_id = new UserIdTypeClass($bank_user_id_int);
-            if(!is_null($bank_user_id))
+            if(SanitizeBankUserId($bank_user_id))
             {
                 $account_id = new AccountIdTypeClass($account_id_int);
-                if(!is_null($account_id))
+                if(SanitizeAccountId($account_id))
                 {
                     if($this->IsBankUserAccountOwner($bank_user_id, $account_id))
                     {
@@ -82,7 +82,7 @@ class ChequeHandlerClass extends AccountingClass
 
                         $transaction_id = $this->MakeTransaction($account_id, $cheque_account_id, $issue_datetime, $amount, $credit_transaction_type, $debit_transaction_type);
 
-                        if( ! is_null($transaction_id))
+                        if(SanitizeTransactionId($transaction_id))
                         {
                             $expire_datetime  = new DateTimeTypeClass($issue_datetime->GetSeconds() + $expire_seconds_int);
                             $escrow_datetime  = new DateTimeTypeClass($issue_datetime->GetSeconds() + $escrow_seconds_int);
@@ -95,11 +95,12 @@ class ChequeHandlerClass extends AccountingClass
                             $reg_country      = new TextTypeClass($reg_country_str);
                             $lock_address     = new TextTypeClass($lock_address_str);
                             $memo             = new TextTypeClass($memo_str);
+                            $user_name        = new NameTypeClass('xxx');
 
 
-                            $cheque = $this->CreateCheque($account_id, $issue_datetime, $expire_datetime, $escrow_datetime, $amount, $reference, $receiver_name, $receiver_address, $receiver_url, $receiver_email, $business_no, $reg_country, $lock_address, $memo);
+                            $cheque = $this->CreateCheque($account_id, $issue_datetime, $expire_datetime, $escrow_datetime, $amount, $reference, $receiver_name, $receiver_address, $receiver_url, $receiver_email, $business_no, $reg_country, $lock_address, $memo, $user_name);
 
-                            if(is_null($cheque))
+                            if(SanitizeCheque($cheque))
                             {
                                 /* TODO Failed to create cheque, maybe need to clean up transaction */
                             }
@@ -112,31 +113,44 @@ class ChequeHandlerClass extends AccountingClass
         return $cheque;
     }
     
-    public function ValidateCheque($cheque_data_array, $claim)
+    public function ValidateCheque($cheque_id_int, $access_code_str, $hash_str)
     {
-        $result = 'Undefined error.';
+        $result = 'ERRORS';
 
-        $validate_cheque = new ChequeDataClass();
-        if($validate_cheque->SetDataFromDbRecord($cheque_data_array))
+        $cheque_id = new ChequeIdTypeClass($cheque_id_int);
+        $access_code = new TextTypeClass($access_code_str);
+        $hash = new TextTypeClass($hash_str);
+
+        if (SanitizeChequeId($cheque_id))
         {
-            $validate_cheque_id = $validate_cheque->GetChequeId();
-
-            $my_cheque = $this->DB_GetChequeData($validate_cheque_id);
-            if(!empty($my_cheque))
+            if(SanitizeText($access_code))
             {
-                $result = $my_cheque->CompareCheque($cheque_data_array);
-                if($result == 'OK' and $claim)
+                if(SanitizeText($hash))
                 {
-                    $this->ChangeChequeState($my_cheque, 'CHEQUE_EVENT_CLAIM');
+                    $my_cheque      = $this->DB_GetChequeData($cheque_id);
+                    if(!is_null($my_cheque))
+                    {
+                        $my_access_code = $my_cheque->GetAccessCode();
+                        $my_hash        = $my_cheque->GetHash();
+
+                        if(($access_code->GetString() == $my_access_code->GetString()) and ($hash->GetString() == $my_hash))
+                        {
+                            $result = 'OK';
+                        }
+                        else
+                        {
+                            $result = 'Ivanlid access';
+                        }
+                    }
+                    else
+                    {
+                        $result = 'Invalid cheque serial no.';
+                    }
                 }
-            }
-            else
-            {
-                error_log('ValidateCheque bug');
             }
         }
 
-        return $result;        
+        return $result;
     }
 
     public function GetBankUserIdOfWpUser($wp_user_id_int)

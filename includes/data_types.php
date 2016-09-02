@@ -233,13 +233,13 @@ class ChequeIdTypeClass extends BaseTypeClass
     }
 }
 
-function SanitizeChequeId($bank_user_id)
+function SanitizeChequeId($cheque_id)
 {
-    if(gettype($bank_user_id) == 'object')
+    if(gettype($cheque_id) == 'object')
     {
-        if(get_class($bank_user_id) == __NAMESPACE__ . '\ChequeIdTypeClass' )
+        if(get_class($cheque_id) == __NAMESPACE__ . '\ChequeIdTypeClass' )
         {
-            return $bank_user_id->Sanitize();
+            return $cheque_id->Sanitize();
         }
     }
     return false;
@@ -643,7 +643,7 @@ class ChequeStateTypeClass extends BaseTypeClass
     {
         if(parent::SanitizeData($value))
         {
-            if ( ( $value == 'UNCLAIMED' ) or ( $value == 'CLAIMED' ) or ( $value == 'EXPIRED' ) or ( $value == 'HOLD' ) )
+            if (( $value == 'INIT' ) or ( $value == 'UNCLAIMED' ) or ( $value == 'CLAIMED' ) or ( $value == 'EXPIRED' ) or ( $value == 'HOLD' ) )
             {
                 return true;
             }

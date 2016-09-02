@@ -236,7 +236,7 @@ class ChequeDataClass extends DataBaseClass
             'class_type'    => 'ChequeStateTypeClass',
             'db_field_name' => self::DB_FIELD_STATE,
             'db_primary_key'=> false,
-            'default_value' => '',
+            'default_value' => 'INIT',
             'public_data'   => false
         ),
         self::DB_FIELD_USER_ACCOUNT_ID => array(

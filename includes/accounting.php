@@ -462,7 +462,7 @@ class AccountingClass extends DatabaseInterfaceClass
         $business_no,
         $reg_country,
         $receiver_wallet,
-        $description,
+        $memo,
         $user_name)
     {
         $cheque = null;
@@ -503,7 +503,7 @@ class AccountingClass extends DatabaseInterfaceClass
             {
                 return $cheque;
             }
-            if  (!is_null($description) and !SanitizeText($description))
+            if  (!is_null($memo) and !SanitizeText($memo))
             {
                 return $cheque;
             }
@@ -539,10 +539,10 @@ class AccountingClass extends DatabaseInterfaceClass
                 $cheque->SetReceiverBusinessNo($business_no);
                 $cheque->SetReceiverRegCountry($reg_country);
                 $cheque->SetReceiverWallet($receiver_wallet);
-                $cheque->SetDescription($description);
+                $cheque->SetDescription($memo);
                 $cheque->SetUserName($user_name);
 
-                $collect_url_str = site_url() . '/wp-admin/admin-ajax.php?action=bcf_bitcoinbank_process_ajax_validate_cheque';
+                $collect_url_str = site_url() . '/wp-admin/admin-ajax.php/';
                 $collect_url = new TextTypeClass($collect_url_str);
                 $cheque->SetCollectUrl($collect_url);
 
