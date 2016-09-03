@@ -39,6 +39,8 @@ require_once('includes/user_handler.php');
 require_once('includes/cheque_handler.php');
 require_once('includes/html_table.php');
 require_once('includes/payment_data_codec.php');
+require_once('includes/banking_app_interface.php');
+require_once('includes/email_cheque.php');
 
 
 
@@ -184,104 +186,82 @@ function ProcessAjaxValidateCheque()
 
 function ProcessAjaxRequestCheque()
 {
-    if((!empty($_POST['username']))
-    and(!empty($_POST['password']))
-    and(!empty($_POST['account']))
-    and(!empty($_POST['payment_request'])))
+    if(!empty($_POST['username']))
     {
         $username = SanitizeInputText($_POST['username']);
-        $password = SanitizeInputText($_POST['password']);
-        $account_val = SanitizeInputInteger($_POST['account']);
-        $payment_request_file = SanitizeInputText($_POST['payment_request']);
-
-        $wp_user = get_user_by( 'login', $username );
-        if($wp_user != false)
-        {
-            if(wp_check_password( $password, $wp_user->data->user_pass, $wp_user->ID))
-            {
-                $wp_user_id_val = $wp_user->ID;
-
-                $wp_user_id = new WpUserIdTypeClass($wp_user_id_val);
-                $account_id = new AccountIdTypeClass($account_val);
-
-                $cheque_handler    = new ChequeHandlerClass();
-                if($cheque_handler->IsWpUserAccountOwner($wp_user_id, $account_id))
-                {
-                    $payment_request = DecodeAndVerifyPaymentFile($payment_request_file);
-
-                    $amount          = SanitizeInputInteger($payment_request['amount']);
-                    $currency_str     = SanitizeInputText($payment_request['currency']);
-                    $paylink_str      = SanitizeInputText($payment_request['paylink']);
-                    $receiver_name    = SanitizeInputText($payment_request['receiver_name']);
-                    $receiver_address = SanitizeInputText($payment_request['receiver_address']);
-                    $receiver_url     = SanitizeInputText($payment_request['receiver_url']);
-                    $receiver_email   = SanitizeInputText($payment_request['receiver_email']);
-                    $business_no      = SanitizeInputText($payment_request['business_no']);
-                    $reg_country      = SanitizeInputText($payment_request['reg_country']);
-                    $receiver_wallet  = SanitizeInputText($payment_request['receiver_wallet']);
-                    $min_expire_sec   = SanitizeInputInteger($payment_request['min_expire_sec']);
-                    $max_escrow_sec   = SanitizeInputInteger($payment_request['max_escrow_sec']);
-                    $reference_str    = SanitizeInputText($payment_request['ref']);
-                    $description      = SanitizeInputText($payment_request['description']);
-
-                    $bank_user_id = $cheque_handler->GetBankUserIdOfWpUser($wp_user_id_val);
-
-                    $cheque = $cheque_handler->IssueCheque($bank_user_id, $account_val, $amount, $min_expire_sec, $max_escrow_sec, $reference_str, $receiver_name, $receiver_address, $receiver_url, $receiver_email, $business_no, $reg_country, $receiver_wallet, $description);
-
-                    if( ! is_null($cheque))
-                    {
-                        //error_log('Issued   cheque:' . $cheque_json);
-                        //error_log($cheque_json);
-
-                        $cheque_data = $cheque->GetDataArrayPublicData();
-                        $cheque_file = EncodeAndSignBitcoinCheque($cheque_data);
-
-                        $response_data = array(
-                            'result' => 'OK',
-                            'ver'    => '1',
-                            'cheque' => $cheque_file,
-                            'status' => 'UNCLAIMED'
-                        );
-                    }
-                    else
-                    {
-                        $response_data = array(
-                            'result' => 'ERROR',
-                            'msg'    => 'Unknown error'
-                        );
-                    }
-                }
-                else
-                {
-                    $response_data = array(
-                        'result' => 'ERROR',
-                        'msg'    => 'Invalid account.'
-                    );
-                }
-            }
-            else
-            {
-                $response_data = array(
-                    'result' => 'ERROR',
-                    'msg'    => 'Wrong password.'
-                );
-            }
-        }
-        else
-        {
-            $response_data = array(
-                'result'    => 'ERROR',
-                'msg'       => 'Invalid username.'
-            );
-        }
     }
-    else
+
+    if(!empty($_POST['password']))
     {
-        $response_data = array(
-            'result'    => 'ERROR',
-            'msg'       => 'Invalid request.'
-        );
+        $password = SanitizeInputText($_POST['password']);
     }
+
+    if(!empty($_POST['account']))
+    {
+        $account = SanitizeInputInteger($_POST['account']);
+    }
+
+    if(!empty($_POST['payment_request']))
+    {
+        $payment_request_file = SanitizeInputText($_POST['payment_request']);
+    }
+
+    $bankingapp = new BankingAppInterface($username, $password);
+    $response_data = $bankingapp->RequestCheque($account, $payment_request_file);
+
+    echo json_encode($response_data);
+    die();
+}
+
+function ProcessAjaxDrawCheque()
+{
+    if(!empty($_POST['username']))
+    {
+        $username = SanitizeInputText($_POST['username']);
+    }
+
+    if(!empty($_POST['password']))
+    {
+        $password = SanitizeInputText($_POST['password']);
+    }
+
+    if(!empty($_POST['account']))
+    {
+        $account = SanitizeInputInteger($_POST['account']);
+    }
+
+    if(!empty($_POST['amount']))
+    {
+        $amount = SanitizeInputInteger($_POST['amount']);
+    }
+
+    if(!empty($_POST['receivers_name']))
+    {
+        $receivers_name = SanitizeInputText($_POST['receivers_name']);
+    }
+
+    if(!empty($_POST['bank_send_to']))
+    {
+        $bank_send_to = SanitizeInputText($_POST['bank_send_to']);
+    }
+
+    if(!empty($_POST['lock']))
+    {
+        $lock = SanitizeInputText($_POST['lock']);
+    }
+
+    if(!empty($_POST['memo']))
+    {
+        $memo = SanitizeInputText($_POST['memo']);
+    }
+
+    if(!empty($_POST['cc_me']))
+    {
+        $cc_me = SanitizeInputInteger($_POST['cc_me']);
+    }
+
+    $bankingapp = new BankingAppInterface($username, $password);
+    $response_data = $bankingapp->DrawCheque($account, $amount, $receivers_name, $bank_send_to, $lock, $memo, $cc_me);
 
     echo json_encode($response_data);
     die();
@@ -289,89 +269,18 @@ function ProcessAjaxRequestCheque()
 
 function ProcessAjaxGetAccountList()
 {
-    if(!empty($_POST['username'])
-        and (!empty($_POST['password'])))
+    if(!empty($_POST['username']))
     {
         $username = SanitizeInputText($_POST['username']);
-        $password = SanitizeInputText($_POST['password']);
-
-        $wp_user = get_user_by( 'login', $username );
-        if($wp_user != false)
-        {
-            if(wp_check_password( $password, $wp_user->data->user_pass, $wp_user->ID))
-            {
-                $wp_user_id = $wp_user->ID;
-
-                $cheque_handler    = new ChequeHandlerClass();
-                $account_data_list = $cheque_handler->GetAccountInfoListFromWpUser($wp_user_id);
-
-                if( ! empty($account_data_list))
-                {
-                    $account_list = [];
-
-                    foreach($account_data_list as $account_data)
-                    {
-                        $listed_account_id = $account_data->GetAccountId();
-                        $account_name      = $account_data->GetAccountName();
-                        $balance           = $cheque_handler->GetUsersAccountBalance($listed_account_id);
-
-                        $account = array(
-                            'account_id' => $listed_account_id->GetString(),
-                            'name'       => $account_name->GetString(),
-                            'balance'    => $balance->GetString(),
-                            'currency'   => 'BTC'
-                        );
-
-                        $account_list[] = $account;
-                    }
-
-                    if( ! empty($account_list))
-                    {
-                        $response_data = array(
-                            'result' => 'OK',
-                            'list'   => $account_list
-                        );
-                    }
-                    else
-                    {
-                        $response_data = array(
-                            'result' => 'ERROR',
-                            'msg'    => 'User has no account.'
-                        );
-                    }
-
-                }
-                else
-                {
-                    $response_data = array(
-                        'result' => 'ERROR',
-                        'msg'    => 'User has no account.'
-                    );
-                }
-            }
-            else
-            {
-                $response_data = array(
-                    'result' => 'ERROR',
-                    'msg'    => 'Wrong password.'
-                );
-            }
-        }
-        else
-        {
-            $response_data = array(
-                'result'    => 'ERROR',
-                'msg'       => 'Invalid username.'
-            );
-        }
     }
-    else
+
+    if(!empty($_POST['password']))
     {
-        $response_data = array(
-            'result'    => 'ERROR',
-            'msg'       => 'Invalid request.'
-        );
+        $password = SanitizeInputText($_POST['password']);
     }
+
+    $bankingapp = new BankingAppInterface($username, $password);
+    $response_data = $bankingapp->GetAccountList();
 
     echo json_encode($response_data);
     die();
@@ -379,24 +288,23 @@ function ProcessAjaxGetAccountList()
 
 function ProcessAjaxGetAccountDetails()
 {
+    if(!empty($_POST['username']))
+    {
+        $username = SanitizeInputText($_POST['username']);
+    }
+
+    if(!empty($_POST['password']))
+    {
+        $password = SanitizeInputText($_POST['password']);
+    }
+
     if(!empty($_POST['account']))
     {
         $account = SanitizeInputInteger($_POST['account']);
+    }
 
-        $response_data = array(
-            'result'    => 'OK',
-            'acount'    => $account,
-            'name'      => 'Name',
-            'balance'    => 0
-        );
-    }
-    else
-    {
-        $response_data = array(
-            'result'    => 'ERROR',
-            'msg'       => 'Request error.'
-        );
-    }
+    $bankingapp = new BankingAppInterface($username, $password);
+    $response_data = $bankingapp->GetAccountInfo($account);
 
     echo json_encode($response_data);
     die();
@@ -404,78 +312,23 @@ function ProcessAjaxGetAccountDetails()
 
 function ProcessAjaxGetTransactionList()
 {
-    if(!empty($_POST['username'])
-       and (!empty($_POST['password']))
-       and (!empty($_POST['account'])))
+    if(!empty($_POST['username']))
     {
-        $username_str = SanitizeInputText($_POST['username']);
-        $password_str = SanitizeInputText($_POST['password']);
-        $account_int = SanitizeInputInteger($_POST['account']);
-
-        $wp_user = get_user_by('login', $username_str);
-        if($wp_user != false)
-        {
-            if(wp_check_password($password_str, $wp_user->data->user_pass, $wp_user->ID))
-            {
-                $wp_user_id_val = $wp_user->ID;
-
-                $cheque_handler    = new ChequeHandlerClass();
-
-                $wp_user_id = new WpUserIdTypeClass($wp_user_id_val);
-                $account_id= new AccountIdTypeClass($account_int);
-
-                $transaction_records_list = $cheque_handler->GetTransactionListForCurrentUser($wp_user_id, $account_id);
-                $balance = $cheque_handler->GetUsersAccountBalance($account_id);
-
-                $transactions = array();
-                $count=0;
-                foreach (array_reverse($transaction_records_list) as $transaction_record)
-                {
-                    $transaction = array(
-                        'id'       => $transaction_record->GetTransactionId()->GetString(),
-                        'datetime' => $transaction_record->GetDateTime()->GetString(),
-                        'type'     => $transaction_record->GetTransactionType()->GetString(),
-                        'amount'   => $transaction_record->GetTransactionAmount()->GetString(),
-                        'balance'  => $transaction_record->GetTransactionBalance()->GetString()
-                    );
-
-                    $transactions[] = $transaction;
-
-                    $count++;
-                    if($count == 25) { break;}
-                }
-
-                $response_data = array(
-                    'result'       => 'OK',
-                    'acount'         => $account_id->GetString(),
-                    'transactions' => $transactions,
-                    'balance'      => $balance->GetString(),
-                    'currency'     => 'BTC'
-                );
-            }
-            else
-            {
-                $response_data = array(
-                    'result' => 'ERROR',
-                    'msg'    => 'Wrong password.'
-                );
-            }
-        }
-        else
-        {
-            $response_data = array(
-                'result'    => 'ERROR',
-                'msg'       => 'Invalid username.'
-            );
-        }
+        $username = SanitizeInputText($_POST['username']);
     }
-    else
+
+    if(!empty($_POST['password']))
     {
-        $response_data = array(
-            'result'    => 'ERROR',
-            'msg'       => 'Invalid request.'
-        );
+        $password = SanitizeInputText($_POST['password']);
     }
+
+    if(!empty($_POST['account']))
+    {
+        $account = SanitizeInputInteger($_POST['account']);
+    }
+
+    $bankingapp = new BankingAppInterface($username, $password);
+    $response_data = $bankingapp->GetTransactionList($account);
 
     echo json_encode($response_data);
     die();
@@ -1176,8 +1029,6 @@ function DrawCheque()
 
             $output .= '<textarea name="payment_request" rows="10" style="width:100%;">'.$cheque_file.'</textarea>';
 
-
-
         }
         else if( !empty($_REQUEST['send_email'])
             and !empty($_REQUEST['cheque_no'])
@@ -1194,66 +1045,31 @@ function DrawCheque()
 
             if($cheque != null)
             {
+                $email = new EmailCheque($send_email_str, $cheque_id_val, $access_code_str);
+
+                if( ! empty($_REQUEST['receiver_name']))
+                {
+                    $receiver_name = SanitizeInputText($_REQUEST['receiver_name']);
+                    $email->SetReceiverName($receiver_name);
+                }
+
                 if( ! empty($_REQUEST['message']))
                 {
                     $message = SanitizeInputText($_REQUEST['message']);
+                    $email->SetMessage($message);
                 }
-                else
+
+                if(!empty($_REQUEST['copy_email']))
                 {
-                    $message = '';
+                    $cc = SanitizeInputText($_REQUEST['copy_email']);
+                    $email->AddCopyAddress($cc);
                 }
 
-                if( ! empty($_REQUEST['receiver_name_str']))
-                {
-                    $receiver_name_str = SanitizeInputText($_REQUEST['receiver_name_str']);
-                }
-                else
-                {
-                    $receiver_name_str = '';
-                }
+                $current_user = wp_get_current_user();
+                $from_email = $current_user->user_email;
+                $email->SetFromAddress($from_email);
 
-                $png_url     = site_url() . '/wp-admin/admin-ajax.php?action=bcf_bitcoinbank_get_cheque_png&cheque_no=' . $cheque_id_val . '&access_code=' . $access_code_str;
-                $claim_url   = site_url() . '/index.php/claim-cheque/';
-                $collect_url = $claim_url . '?cheque_no=' . $cheque_id_val . '&access_code=' . $access_code_str;
-
-                $body = '<p></p><b>Hello';
-                if($message)
-                {
-                    $body .= $receiver_name_str;
-                }
-                $body .= ',</b></p>';
-                if($message)
-                {
-                    /* Strip out non utf-8 characters */
-                    $message = preg_replace('/[\x00-\x1F\x80-\xFF]/', '', $message);
-
-                    $body .= '<p>' . $message . '</p>';
-                    $body .= '<p>To collect the money click on the cheque picture or copy the link below into your web browser.</p>';
-                }
-                else
-                {
-                    $body .= '<p>You have received a Bitcoin Cheque. To collect the money click on the cheque picture or copy the link below into your web browser.</p>';
-                }
-
-                $body .= '<p><a href="' . $collect_url . '"><img src="' . $png_url . '" height="300" width="800" alt="Loading cheque image..."/></a></p>';
-
-                $body .= '<p><a href="' . $collect_url . '">' . $collect_url . '</a></p>';
-
-                $body .= '<p>Or you can click on this link and enter the Cheque No. and Access Code:</p>';
-                $body .= '<p><a href="' . $claim_url . '">' . $claim_url . '</a></p>';
-                $body .= 'Cheque No.: ' . $cheque_id_val;
-                $body .= '<br>Access Code.: ' . $access_code_str;
-
-                $body .= '<p>This Bitcoin Cheque has been issued by</p>';
-
-                $body .= '<p><b>What is Bitcoin?</b><br>Bitcoin is a consensus network that enables a new payment system and a completely digital money. It is the first decentralized peer-to-peer payment network that is powered by its users with no central authority or middlemen. From a user perspective, Bitcoin is pretty much like cash for the Internet.</p>';
-                $body .= '<p><b>What is Bitcoin Cheques?</b><br>A Bitcoin Cheque is a new method for sending Bitcoins. The Bitcoin Cheque is a promiss that the issuing bank will pay a certain amount to a receiver. You can read more about Bitcoin Cheque here at <a href="http://www.bitcoincheque.org">www.bitcoincheque.org</a></p>';
-
-                $subject = 'You have received a Bitcoin Cheque';
-
-                $headers = array('Content-Type: text/html; charset=UTF-8');
-
-                if(wp_mail($send_email_str, $subject, $body, $headers))
+                if($email->Send())
                 {
                     $output = 'E-mail successfully sent to ' . $send_email_str;
                 }
@@ -1989,6 +1805,8 @@ function Testpage()
 
 add_action('wp_ajax_nopriv_request_cheque', 'BCF_BitcoinBank\ProcessAjaxRequestCheque');
 add_action('wp_ajax_request_cheque', 'BCF_BitcoinBank\ProcessAjaxRequestCheque');
+add_action('wp_ajax_nopriv_draw_cheque', 'BCF_BitcoinBank\ProcessAjaxDrawCheque');
+add_action('wp_ajax_draw_cheque', 'BCF_BitcoinBank\ProcessAjaxDrawCheque');
 
 add_action('wp_ajax_nopriv_validate_payment_cheque', 'BCF_BitcoinBank\ProcessAjaxValidateCheque');
 add_action('wp_ajax_validate_payment_cheque', 'BCF_BitcoinBank\ProcessAjaxValidateCheque');

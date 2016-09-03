@@ -46,7 +46,8 @@ class ChequeHandlerClass extends AccountingClass
         $business_no_str,
         $reg_country_str,
         $lock_address_str,
-        $memo_str)
+        $memo_str,
+        $username)
     {
         $cheque =null;
 
@@ -95,8 +96,7 @@ class ChequeHandlerClass extends AccountingClass
                             $reg_country      = new TextTypeClass($reg_country_str);
                             $lock_address     = new TextTypeClass($lock_address_str);
                             $memo             = new TextTypeClass($memo_str);
-                            $user_name        = new NameTypeClass('xxx');
-
+                            $user_name        = new NameTypeClass($username);
 
                             $cheque = $this->CreateCheque($account_id, $issue_datetime, $expire_datetime, $escrow_datetime, $amount, $reference, $receiver_name, $receiver_address, $receiver_url, $receiver_email, $business_no, $reg_country, $lock_address, $memo, $user_name);
 
@@ -215,6 +215,18 @@ class ChequeHandlerClass extends AccountingClass
         }
 
         return $balance;
+    }
+
+    public function GetBankUserDataFromWpUser($wp_user_id)
+    {
+        $bank_user_data = NULL;
+
+        if(SanitizeWpUserId($wp_user_id))
+        {
+            $bank_user_data = parent::GetBankUserDataFromWpUser($wp_user_id);
+        }
+
+        return $bank_user_data;
     }
 
     public function GetTransactionListForCurrentUser($wp_user_id, $account_id)
