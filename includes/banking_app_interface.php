@@ -250,21 +250,35 @@ class BankingAppInterface
                 $receiver_email   = SanitizeInputText($payment_request['receiver_email']);
                 $business_no      = SanitizeInputText($payment_request['business_no']);
                 $reg_country      = SanitizeInputText($payment_request['reg_country']);
-                $receiver_wallet  = SanitizeInputText($payment_request['receiver_wallet']);
+                $lock             = SanitizeInputText($payment_request['receiver_wallet']);
                 $min_expire_sec   = SanitizeInputInteger($payment_request['min_expire_sec']);
                 $max_escrow_sec   = SanitizeInputInteger($payment_request['max_escrow_sec']);
                 $reference_str    = SanitizeInputText($payment_request['ref']);
-                $description      = SanitizeInputText($payment_request['description']);
+                $memo             = SanitizeInputText($payment_request['description']);
 
-                $bank_user_id = $cheque_handler->GetBankUserIdOfWpUser($this->wp_user_id);
+                $bank_user_data = $cheque_handler->GetBankUserDataFromWpUser($wp_user_id);
+                $bank_user_id = $bank_user_data->GetBankUserId();
+                $user_name = $bank_user_data->GetName();
 
-                $cheque = $cheque_handler->IssueCheque($bank_user_id, $account_int, $amount, $min_expire_sec, $max_escrow_sec, $reference_str, $receiver_name, $receiver_address, $receiver_url, $receiver_email, $business_no, $reg_country, $receiver_wallet, $description);
+                $cheque = $cheque_handler->IssueCheque(
+                    $bank_user_id->GetInt(),
+                    $account_int,
+                    $amount,
+                    $min_expire_sec,
+                    $max_escrow_sec,
+                    $reference_str,
+                    $receiver_name,
+                    $receiver_address,
+                    $receiver_url,
+                    $receiver_email,
+                    $business_no,
+                    $reg_country,
+                    $lock,
+                    $memo,
+                    $user_name->GetString());
 
                 if( ! is_null($cheque))
                 {
-                    //error_log('Issued   cheque:' . $cheque_json);
-                    //error_log($cheque_json);
-
                     $cheque_data = $cheque->GetDataArrayPublicData();
                     $cheque_file = EncodeAndSignBitcoinCheque($cheque_data);
 

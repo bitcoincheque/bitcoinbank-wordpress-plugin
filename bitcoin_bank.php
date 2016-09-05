@@ -40,6 +40,7 @@ require_once('includes/cheque_handler.php');
 require_once('includes/html_table.php');
 require_once('includes/payment_data_codec.php');
 require_once('includes/banking_app_interface.php');
+require_once('includes/user_interface.php');
 require_once('includes/email_cheque.php');
 
 
@@ -66,6 +67,31 @@ function SanitizeInputInteger($text)
 
     return $value;
 }
+
+function SafeReadGetString($key)
+{
+    if(!empty($_REQUEST[$key]))
+    {
+        return SanitizeInputText($_REQUEST[$key]);
+    }
+    else
+    {
+        return null;
+    }
+}
+
+function SafeReadGetInt($key)
+{
+    if(!empty($_REQUEST[$key]))
+    {
+        return SanitizeInputInteger($_REQUEST[$key]);
+    }
+    else
+    {
+        return null;
+    }
+}
+
 
 function ConvertFloatToIntCurrency($amount_float, $currency_unit)
 {
@@ -939,190 +965,19 @@ function ListUserCheques()
 
 function DrawCheque()
 {
-    if (is_user_logged_in())
-    {
-        $user_handler = new UserHandlerClass();
-        $currency = 'BTC';
+    $input_data['state']            = SafeReadGetInt('state');
+    $input_data['select_account']   = SafeReadGetInt('select_account');
+    $input_data['amount']           = SafeReadGetInt('amount');
+    $input_data['cheque_no']        = SafeReadGetInt('cheque_no');
 
-        if( !empty($_REQUEST['select_account'])
-            and !empty($_REQUEST['amount'])
-            and !empty($_REQUEST['expired_days'])
-        )
-        {
-            $selected_account_int = SanitizeInputInteger($_REQUEST['select_account']);
+    $input_data['expired_days']     = SafeReadGetInt('expired_days');
+    $input_data['receiver_name']    = SafeReadGetString('receiver_name');
+    $input_data['receiver_email']   = SafeReadGetString('receiver_email');
+    $input_data['access_code']      = SafeReadGetString('access_code');
+    $input_data['send_email']       = SafeReadGetString('send_email');
 
-            if(!empty($_REQUEST['receiver_name']))
-            {
-                $receiver_name_str = SanitizeInputText($_REQUEST['receiver_name']);
-            }
-            else
-            {
-                $receiver_name_str = '';
-            }
-
-            if(!empty($_REQUEST['receiver_email']))
-            {
-                $receiver_email_str = SanitizeInputText($_REQUEST['receiver_email']);
-            }
-            else
-            {
-                $receiver_email_str = '';
-            }
-
-
-            $amount_float = SanitizeInputText($_REQUEST['amount']);
-
-            $amount_int = ConvertFloatToIntCurrency($amount_float, $currency);
-
-            $expire_days = SanitizeInputInteger($_REQUEST['expired_days']);
-
-            if(!empty($_REQUEST['memo']))
-            {
-                $memo_str = SanitizeInputText($_REQUEST['memo']);
-            }
-            else
-            {
-                $memo_str = '';
-            }
-
-            $account_id = new AccountIdTypeClass($selected_account_int);
-            $amount = new ValueTypeClass($amount_int);
-            $receiver_name = new NameTypeClass($receiver_name_str);
-            $lock_address = new TextTypeClass($receiver_email_str);
-            $expire_seconds = $expire_days * 24 * 3600;
-            $escrow_seconds = 0;
-            $memo = new TextTypeClass($memo_str);
-
-            $cheque = $user_handler->IssueCheque($account_id, $amount, $expire_seconds, $escrow_seconds, $receiver_name, $lock_address, $memo);
-            $cheque_id_str = $cheque->GetChequeId()->GetString();
-            $access_code_str = $cheque->GetAccessCode()->GetString();
-
-            $png_url = site_url() . '/wp-admin/admin-ajax.php?action=bcf_bitcoinbank_get_cheque_png&cheque_no='. $cheque_id_str . '&access_code=' . $access_code_str;
-
-            $output = '<a href="'.$png_url.'"><img src="'. $png_url . '" height="300" width="800" alt="Loading cheque image..."/></a>';
-            $output .= '<br>';
-            $output .= '<h3>Send cheque to the receiver</h3>';
-            $output .= '<b>Let us send the cheque by e-mail</b>';
-
-            $output .= '<form name="bcf_withdraw_form">';
-            $output .= '<table style="border-style:none;" width="100%"><tr>';
-            $output .= '<tr>';
-            $output .= '<td style="border-style:none;">Send to email * :</td><td style="border-style:none;"><input type="text" value="'.$receiver_email_str.'" name="send_email" /></td>';
-            $output .= '</tr><tr>';
-            $output .= '<td style="border-style:none;">Personal message to receiver added in the e-mail:</td><td style="border-style:none;"><textarea rows="4" cols="50" name="message">I send you this cheque. You must follow the link below in order to claim it.</textarea></td>';
-            $output .= '</tr><tr>';
-            $output .= '<td style="border-style:none;">Copy to you:</td><td style="border-style:none;"><input type="text" value="" name="copy_email" /></td>';
-            $output .= '</tr><tr>';
-            $output .= '<td style="border-style:none;"></td><td style="border-style:none;"><a href="withdraw"><input type="submit" value="Send e-mail"></td>';
-            $output .= '</tr></table>';
-            $output .= '<input type="hidden" name="cheque_no" value="'.$cheque_id_str.'">';
-            $output .= '<input type="hidden" name="access_code" value="'.$access_code_str.'">';
-            $output .= '<input type="hidden" name="receiver_name" value="'.$receiver_name_str.'">';
-            $output .= '</form>';
-            $output .= '* Required information.';
-            $output .= '<br>';
-            $output .= '<br>';
-            $output .= '<h3>Or copy the below and send it yourself</h3>';
-
-            $cheque_data = $cheque->GetDataArray(true);
-            $cheque_file = EncodeAndSignBitcoinCheque($cheque_data);
-
-            $output .= '<textarea name="payment_request" rows="10" style="width:100%;">'.$cheque_file.'</textarea>';
-
-        }
-        else if( !empty($_REQUEST['send_email'])
-            and !empty($_REQUEST['cheque_no'])
-                and !empty($_REQUEST['access_code']))
-        {
-            $send_email_str = SanitizeInputText($_REQUEST['send_email']);
-            $cheque_id_val = SanitizeInputInteger($_REQUEST['cheque_no']);
-            $access_code_str = SanitizeInputText($_REQUEST['access_code']);
-
-            $cheque_id   = new ChequeIdTypeClass($cheque_id_val);
-            $access_code = new TextTypeClass($access_code_str);
-
-            $cheque = $user_handler->GetCheque($cheque_id, $access_code);
-
-            if($cheque != null)
-            {
-                $email = new EmailCheque($send_email_str, $cheque_id_val, $access_code_str);
-
-                if( ! empty($_REQUEST['receiver_name']))
-                {
-                    $receiver_name = SanitizeInputText($_REQUEST['receiver_name']);
-                    $email->SetReceiverName($receiver_name);
-                }
-
-                if( ! empty($_REQUEST['message']))
-                {
-                    $message = SanitizeInputText($_REQUEST['message']);
-                    $email->SetMessage($message);
-                }
-
-                if(!empty($_REQUEST['copy_email']))
-                {
-                    $cc = SanitizeInputText($_REQUEST['copy_email']);
-                    $email->AddCopyAddress($cc);
-                }
-
-                $current_user = wp_get_current_user();
-                $from_email = $current_user->user_email;
-                $email->SetFromAddress($from_email);
-
-                if($email->Send())
-                {
-                    $output = 'E-mail successfully sent to ' . $send_email_str;
-                }
-                else
-                {
-                    $output = 'Error. Could not send e-mail.';
-                }
-            }
-            else
-            {
-                $output = 'Error. Invalid cheque data.';
-            }
-        }
-        else
-        {
-            $account_selected = null;
-
-            $account_data_list = $user_handler->GetAccountInfoListCurrentUser();
-
-            $output = '<form name="bcf_withdraw_form">';
-            $output .= '<table style="border-style:none;" width="100%"><tr>';
-            $output .= '<td style="border-style:none;" width="30%">From my account:</td>';
-
-            $output .= '<td style="border-style:none;">';
-
-            $output .= MakeHtmlSelectOptions($user_handler, $account_data_list, $account_selected, $currency);
-
-            $output .= '</td>';
-
-            $output .= '</tr><tr>';
-            $output .= '<td style="border-style:none;">Name of receiver:</td><td style="border-style:none;"><input type="text" value="" id="bcf_bitcoinbank_deposit_account" name="receiver_name" /></td>';
-            $output .= '</tr><tr>';
-            $output .= '<td style="border-style:none;">Receiver\'s e-mail:</td><td style="border-style:none;"><input type="text" id="bcf_bitcoinbank_withdraw_amount" name="receiver_email" /></td>';
-            $output .= '</tr><tr>';
-            $output .= '<td style="border-style:none;">Amount * :</td><td style="border-style:none;"><input type="text" id="bcf_bitcoinbank_withdraw_amount" name="amount" /></td>';
-            $output .= '</tr><tr>';
-            $output .= '<td style="border-style:none;">Expired in days * :</td><td style="border-style:none;"><input type="text" id="bcf_bitcoinbank_withdraw_amount" name="expired_days" value="2"/></td>';
-            $output .= '</tr><tr>';
-            $output .= '<td style="border-style:none;">Memo:</td><td style="border-style:none;"><input type="text" id="bcf_bitcoinbank_withdraw_amount" name="memo" /></td>';
-            $output .= '</tr><tr>';
-            $output .= '<td style="border-style:none;"></td><td style="border-style:none;"><a href="withdraw"><input type="submit" value="Create cheque"/></a></td>';
-            $output .= '</tr></table>';
-            $output .= '</form>';
-            $output .= '* Required information.';
-            $output .= '<br>';
-        }
-
-    }
-    else
-    {
-        $output = 'You must be logged in to draw cheques.';
-    }
-
+    $user_interface = new UserInterface();
+    $output = $user_interface->DrawCheque($input_data);
     return $output;
 }
 
