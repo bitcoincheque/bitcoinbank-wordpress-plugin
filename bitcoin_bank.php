@@ -1541,6 +1541,12 @@ function Payment()
     return $output;
 }
 
+function add_meta_data()
+{
+    $banking_app_url = site_url() . '/wp-admin/admin-ajax.php';
+
+    echo '<link rel="BankingApp" href="' . $banking_app_url . '">' . PHP_EOL;
+}
 
 function ActivatePlugin()
 {
@@ -1689,6 +1695,10 @@ add_shortcode('bcf_bitcoinbank_profile', 'BCF_BitcoinBank\UserProfile');
 add_shortcode('bcf_bitcoinbank_payment', 'BCF_BitcoinBank\Payment');
 
 add_shortcode('bcf_testing1', 'BCF_BitcoinBank\Testpage');
+
+/* Add hooks */
+add_action('wp_head', 'BCF_BitcoinBank\add_meta_data');
+
 
 register_activation_hook(__FILE__, 'BCF_BitcoinBank\ActivatePlugin');
 register_deactivation_hook(__FILE__, 'BCF_BitcoinBank\DeactivatePlugin');
