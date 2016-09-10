@@ -220,7 +220,7 @@ class AccountingClass extends DatabaseInterfaceClass
         return $result;
     }
 
-    protected function GetAccountData($account_id)
+    public function GetAccountData($account_id)
     {
         $account_info = NULL;
 
@@ -251,13 +251,30 @@ class AccountingClass extends DatabaseInterfaceClass
         if(SanitizeAccountId($account_id))
         {
             $account_data = $this->GetAccountData($account_id);
-            if (!empty($account_data))
+            if (!is_null($account_data))
             {
                 $bank_user_id = $account_data->GetOwnersUserId();
             }
         }
         
         return $bank_user_id;
+    }
+
+    protected function GetAccountCurrency($account_id)
+    {
+        $currency = null;
+
+        if(SanitizeAccountId($account_id))
+        {
+            $account_data = $this->DB_GetAccountData($account_id);
+
+            if(!is_null($account_data))
+            {
+                $currency = $account_data->GetCurrency();
+            }
+        }
+
+        return $currency;
     }
 
     protected function GetAccountBalance($account_id)
@@ -363,7 +380,7 @@ class AccountingClass extends DatabaseInterfaceClass
         return $transaction_id;
     }
 
-    protected function MakeTransaction($account_id_from, $account_id_to, $datetime, $amount, $debit_type, $credit_type)
+    protected function MakeTransaction($account_id_from, $account_id_to, $datetime, $amount, $currency, $debit_type, $credit_type)
     {
         $transaction_id = null;
 
@@ -371,13 +388,22 @@ class AccountingClass extends DatabaseInterfaceClass
             and SanitizeAccountId($account_id_to)
             and SanitizeDateTime($datetime)
             and SanitizeAmount($amount)
+            and SanitizeCurrency($currency)
             and SanitizeTransactionType($debit_type)
             and SanitizeTransactionType($credit_type))
         {
-            $transaction_id = $this->WithdrawTransaction($account_id_from, $datetime, $amount, $debit_type);
-            if(!is_null($transaction_id))
+
+            $currency_from = $this->GetAccountCurrency($account_id_from)->GetString();
+            $currency_to = $this->GetAccountCurrency($account_id_to)->GetString();
+            $currency = $currency->GetString();
+
+            if(($currency == $currency_from) and ( $currency == $currency_to))
             {
-                $transaction_id = $this->AddTransaction($account_id_to, $datetime, $amount, $credit_type);
+                $transaction_id = $this->WithdrawTransaction($account_id_from, $datetime, $amount, $debit_type);
+                if( ! is_null($transaction_id))
+                {
+                    $transaction_id = $this->AddTransaction($account_id_to, $datetime, $amount, $credit_type);
+                }
             }
         }
 
@@ -454,6 +480,7 @@ class AccountingClass extends DatabaseInterfaceClass
         $expire_datetime,
         $escrow_datetime,
         $amount,
+        $currency,
         $reference,
         $receiver_name,
         $receiver_address,
@@ -472,6 +499,7 @@ class AccountingClass extends DatabaseInterfaceClass
             and SanitizeDateTime($expire_datetime)
             and SanitizeDateTime($escrow_datetime)
             and SanitizeAmount($amount)
+            and SanitizeCurrency($currency)
             and SanitizeText($receiver_wallet))
         {
             /* Optional field, set to null if not used */
@@ -529,6 +557,7 @@ class AccountingClass extends DatabaseInterfaceClass
                 $cheque->SetExpireDateTime($expire_datetime);
                 $cheque->SetEscrowDateTime($escrow_datetime);
                 $cheque->SetValue($amount);
+                $cheque->SetCurrency($currency);
                 $cheque->SetReceiverReference($reference);
                 $cheque->SetAccessCode($secret_token);
                 $cheque->SetOwnerAccountId($issuer_account_id);
@@ -629,12 +658,13 @@ class AccountingClass extends DatabaseInterfaceClass
             {
                 $issuer_account_id = $cheque->GetOwnerAccountId();
                 $amount = $cheque->GetValue();
+                $currency = $cheque->GetCurrency();
 
                 $transaction_type_withdraw = new TransactionDirTypeClass('WITHDRAW');
                 $transaction_type_add = new TransactionDirTypeClass('REIMBURSEMENT');
 
                 // TODO This must be atomic operation
-                $transaction_id = $this->MakeTransaction($cheque_account_id, $issuer_account_id, $current_time, $amount, $transaction_type_withdraw, $transaction_type_add);
+                $transaction_id = $this->MakeTransaction($cheque_account_id, $issuer_account_id, $current_time, $amount, $currency, $transaction_type_withdraw, $transaction_type_add);
 
                 if(!is_null($transaction_id))
                 {
@@ -799,6 +829,14 @@ function GetFormattedCurrency($value, $currency, $include_currency_text=false, $
             if($include_currency_text)
             {
                 $str .= ' uBTC';
+            }
+        }
+        elseif($currency == 'TestBTC' )
+        {
+            $str = FormatedLongCurrency($value, 8, $decimal_mark);
+            if($include_currency_text)
+            {
+                $str .= ' TestBTC';
             }
         }
         else

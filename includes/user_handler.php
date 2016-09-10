@@ -127,7 +127,7 @@ class UserHandlerClass extends AccountingClass
         return $transaction_records_list;
     }
 
-    function MakeTransactionToAccount($account_id_from, $account_id_to, $amount)
+    function MakeTransactionToAccount($account_id_from, $account_id_to, $amount, $currency)
     {
         $transaction_id = null;
 
@@ -148,6 +148,7 @@ class UserHandlerClass extends AccountingClass
                             $account_id_to,
                             $timestamp,
                             $amount,
+                            $currency,
                             $transaction_type_withdraw,
                             $transaction_type_add);
                     }
@@ -251,8 +252,9 @@ class UserHandlerClass extends AccountingClass
                     $cheque_account_id = $this->GetChequeEscrollAccount();
                     $debit_transaction_type = new TransactionDirTypeClass('ADD');
                     $credit_transaction_type = new TransactionDirTypeClass('CHEQUE');
+                    $currency = $account_data->GetCurrency();
 
-                    $transaction_id = $this->MakeTransaction($issuer_account_id, $cheque_account_id, $issue_datetime, $amount, $credit_transaction_type, $debit_transaction_type);
+                    $transaction_id = $this->MakeTransaction($issuer_account_id, $cheque_account_id, $issue_datetime, $amount, $currency, $credit_transaction_type, $debit_transaction_type);
 
                     if(!is_null($transaction_id))
                     {
@@ -265,6 +267,7 @@ class UserHandlerClass extends AccountingClass
                             $expire_datetime,
                             $escrow_datetime,
                             $amount,
+                            $currency,
                             $reference,
                             $receiver_name,
                             null,

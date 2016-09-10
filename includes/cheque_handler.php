@@ -36,6 +36,7 @@ class ChequeHandlerClass extends AccountingClass
         $bank_user_id_int,
         $account_id_int,
         $amount_int,
+        $currency_str,
         $expire_seconds_int,
         $escrow_seconds_int,
         $reference_str,
@@ -56,6 +57,7 @@ class ChequeHandlerClass extends AccountingClass
             and SanitizePositiveInteger($amount_int)
             and SanitizePositiveInteger($expire_seconds_int)
             and SanitizePositiveInteger($escrow_seconds_int)
+            and SanitizeTextAlpanumeric($currency_str)
             and SanitizeTextAlpanumeric($reference_str)
             and SanitizeTextAlpanumeric($receiver_name_str)
             and SanitizeTextAlpanumeric($receiver_address_str)
@@ -76,12 +78,13 @@ class ChequeHandlerClass extends AccountingClass
                     if($this->IsBankUserAccountOwner($bank_user_id, $account_id))
                     {
                         $amount                  = new ValueTypeClass($amount_int);
+                        $currency                = new CurrencyTypeClass($currency_str);
                         $issue_datetime          = $this->DB_GetCurrentTimeStamp();
                         $cheque_account_id       = $this->GetChequeEscrollAccount();
                         $debit_transaction_type  = new TransactionDirTypeClass('ADD');
                         $credit_transaction_type = new TransactionDirTypeClass('CHEQUE');
 
-                        $transaction_id = $this->MakeTransaction($account_id, $cheque_account_id, $issue_datetime, $amount, $credit_transaction_type, $debit_transaction_type);
+                        $transaction_id = $this->MakeTransaction($account_id, $cheque_account_id, $issue_datetime, $amount, $currency, $credit_transaction_type, $debit_transaction_type);
 
                         if(SanitizeTransactionId($transaction_id))
                         {
@@ -98,7 +101,7 @@ class ChequeHandlerClass extends AccountingClass
                             $memo             = new TextTypeClass($memo_str);
                             $user_name        = new NameTypeClass($username);
 
-                            $cheque = $this->CreateCheque($account_id, $issue_datetime, $expire_datetime, $escrow_datetime, $amount, $reference, $receiver_name, $receiver_address, $receiver_url, $receiver_email, $business_no, $reg_country, $lock_address, $memo, $user_name);
+                            $cheque = $this->CreateCheque($account_id, $issue_datetime, $expire_datetime, $escrow_datetime, $amount, $currency, $reference, $receiver_name, $receiver_address, $receiver_url, $receiver_email, $business_no, $reg_country, $lock_address, $memo, $user_name);
 
                             if(SanitizeCheque($cheque))
                             {
@@ -187,6 +190,18 @@ class ChequeHandlerClass extends AccountingClass
         }
 
         return $result;
+    }
+
+    public function GetAccountDataFromWpUser($wp_user_id, $account_id)
+    {
+        $account_data = null;
+
+        if($this->IsWpUserAccountOwner($wp_user_id, $account_id))
+        {
+            $account_data = $this->GetAccountData($account_id);
+        }
+
+        return $account_data;
     }
 
     public function GetAccountInfoListFromWpUser($wp_user_id)

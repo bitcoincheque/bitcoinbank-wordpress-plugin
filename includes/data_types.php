@@ -553,6 +553,14 @@ class ValueTypeClass extends BaseTypeClass
                     $str .= ' uBTC';
                 }
             }
+            elseif($currency == 'TestBTC' )
+            {
+                $str = FormatedLongCurrency($value, 8, $decimal_mark);
+                if($include_currency_text)
+                {
+                    $str .= ' TestBTC';
+                }
+            }
             else
             {
                 $str = 'Error: Unknown currency';
@@ -816,6 +824,46 @@ function SanitizeTransactionType($transaction_type)
         if(get_class($transaction_type) == __NAMESPACE__ . '\TransactionDirTypeClass' )
         {
             return $transaction_type->Sanitize();
+        }
+    }
+    return false;
+}
+
+/***********************************************************************************************************************
+ * Currency Type
+ **********************************************************************************************************************/
+class CurrencyTypeClass extends BaseTypeClass
+{
+    protected $MetaData = array(
+        'data_type' => 'string',
+        'mysql_type' => 'TINYTEXT',
+        'data_min'  => 0,
+        'data_max'  => 250
+    );
+
+
+    public function __construct($default_value, $primary_key=null)
+    {
+        parent::__construct($default_value, $primary_key, $this->MetaData);
+    }
+
+    public function SetDataFromString($data_str)
+    {
+        return parent::SetData($data_str);
+    }
+    public function GetString()
+    {
+        return strval( parent::GetData() );
+    }
+}
+
+function SanitizeCurrency($text)
+{
+    if(gettype($text) == 'object')
+    {
+        if(get_class($text) == __NAMESPACE__ . '\CurrencyTypeClass' )
+        {
+            return $text->Sanitize();
         }
     }
     return false;

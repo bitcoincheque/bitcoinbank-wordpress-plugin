@@ -100,6 +100,7 @@ function ConvertFloatToIntCurrency($amount_float, $currency_unit)
         case 'uBTC': $unit_size = 100; break;
         case 'mBTC': $unit_size = 100000; break;
         case 'BTC': $unit_size  = 100000000; break;
+        case 'TestBTC': $unit_size  = 100000000; break;
         default:
             die();
     }
@@ -261,6 +262,11 @@ function ProcessAjaxDrawCheque()
         $amount = SanitizeInputInteger($_POST['amount']);
     }
 
+    if(!empty($_POST['currency']))
+    {
+        $currency = SanitizeInputText($_POST['currency']);
+    }
+
     if(!empty($_POST['receivers_name']))
     {
         $receivers_name = SanitizeInputText($_POST['receivers_name']);
@@ -287,7 +293,7 @@ function ProcessAjaxDrawCheque()
     }
 
     $bankingapp = new BankingAppInterface($username, $password);
-    $response_data = $bankingapp->DrawCheque($account, $amount, $receivers_name, $bank_send_to, $lock, $memo, $cc_me);
+    $response_data = $bankingapp->DrawCheque($account, $amount, $currency, $receivers_name, $bank_send_to, $lock, $memo, $cc_me);
 
     echo json_encode($response_data);
     die();
@@ -360,7 +366,7 @@ function ProcessAjaxGetTransactionList()
     die();
 }
 
-function MakeHtmlSelectOptions($user_handler, $account_data_list, $account_selected, $currency)
+function MakeHtmlSelectOptions($user_handler, $account_data_list, $account_selected)
 {
     $html = '<select name="select_account">';
     foreach ( $account_data_list as $account_data )
@@ -370,8 +376,10 @@ function MakeHtmlSelectOptions($user_handler, $account_data_list, $account_selec
         $account_id_formatedstr = $listed_account_id->GetFormatedString();
         $account_name           = $account_data->GetAccountName();
         $account_name_str       = $account_name->GetString();
+        $currency               = $account_data->GetCurrency();
+        $currency_str           = $currency->GetString();
         $balance = $user_handler->GetUsersAccountBalance($listed_account_id);
-        $account_balance_str    = GetFormattedCurrency($balance->GetInt(), $currency, true );
+        $account_balance_str    = GetFormattedCurrency($balance->GetInt(), $currency_str, true );
 
         $select = '';
         if($account_selected != null)
@@ -388,7 +396,7 @@ function MakeHtmlSelectOptions($user_handler, $account_data_list, $account_selec
     return $html;
 }
 
-function MakeHtmlFormSelectAccount($user_handler, $account_data_list, $account_selected, $currency)
+function MakeHtmlFormSelectAccount($user_handler, $account_data_list, $account_selected)
 {
 
     $html = '<form name="bcf_withdraw_form">';
@@ -397,7 +405,7 @@ function MakeHtmlFormSelectAccount($user_handler, $account_data_list, $account_s
 
     $html .= '<td style="border-style:none;">';
 
-    $html .= MakeHtmlSelectOptions($user_handler, $account_data_list, $account_selected, $currency);
+    $html .= MakeHtmlSelectOptions($user_handler, $account_data_list, $account_selected);
 
     $html .= '</td>';
 
@@ -410,9 +418,8 @@ function MakeHtmlFormSelectAccount($user_handler, $account_data_list, $account_s
 
 function ListUserTransactions($atts)
 {
-    if (is_user_logged_in()) {
-        $currency = 'BTC';
-
+    if (is_user_logged_in())
+    {
         if ( ! empty( $_REQUEST['select_account'] ) ) {
             $show_account_str = SanitizeInputText( $_REQUEST['select_account'] );
             $account_selected = new AccountIdTypeClass(0);
@@ -433,8 +440,9 @@ function ListUserTransactions($atts)
             $account_selected = $account_data->GetAccountId();
         }
         $transaction_records_list = $user_handler->GetTransactionListForCurrentUser($account_selected);
+        $currency = $account_data->GetCurrency()->GetString();
 
-        $html_select_account_form = MakeHtmlFormSelectAccount($user_handler, $account_data_list, $account_selected, $currency);
+        $html_select_account_form = MakeHtmlFormSelectAccount($user_handler, $account_data_list, $account_selected);
 
         $html_table = new HtmlTableClass();
         $html_table->AddLineItem('Trans.Id');
@@ -495,8 +503,6 @@ function Withdraw()
 {
     if(is_user_logged_in())
     {
-        $currency = 'BTC';
-
         if ( ! empty( $_REQUEST['select_account'] ) ) {
             $show_account_str = SanitizeInputText( $_REQUEST['select_account'] );
             $account_selected = new AccountIdTypeClass(0);
@@ -519,18 +525,32 @@ function Withdraw()
             $to_account_id = new AccountIdTypeClass(intval($to_account_id_str));
             $amount = new ValueTypeClass(intval($amount_str));
 
-            $transaction_id = $user_handler->MakeTransactionToAccount($from_account_id, $to_account_id, $amount);
-            if (!is_null($transaction_id))
+            $currency_from_account = $user_handler->GetAccountData($from_account_id)->GetCurrency()->GetString();
+            $currency_to_account = $user_handler->GetAccountData($to_account_id)->GetCurrency()->GetString();
+
+            if($currency_from_account == $currency_to_account)
             {
-                $withdraw_output .= 'Transfered OK.<br>';
-                $withdraw_output .= GetFormattedCurrency($amount->GetInt(), $currency, true) . ' sent from account '. $from_account_id->GetFormatedString() . ' to ' . $to_account_id->GetFormatedString() . '<br>';
-                $my_transaction_id = $transaction_id->GetInt() - 1; // Making a internal transfer creats two transactions records in database. My record was the previous one.
-                $withdraw_output .= '(Transaction ID = ' . $my_transaction_id . ')<br>';
+                $currency = new CurrencyTypeClass($currency_from_account);
+
+                $transaction_id = $user_handler->MakeTransactionToAccount($from_account_id, $to_account_id, $amount, $currency);
+                if( ! is_null($transaction_id))
+                {
+                    $withdraw_output .= 'Transfered OK.<br>';
+                    $withdraw_output .= GetFormattedCurrency($amount->GetInt(), $currency_from_account, true) . ' sent from account ' . $from_account_id->GetFormatedString() . ' to ' . $to_account_id->GetFormatedString() . '<br>';
+                    $my_transaction_id = $transaction_id->GetInt() - 1; // Making a internal transfer creats two transactions records in database. My record was the previous one.
+                    $withdraw_output .= '(Transaction ID = ' . $my_transaction_id . ')<br>';
+                }
+                else
+                {
+                    $withdraw_output .= 'Transfer ERROR!<br>';
+                    $withdraw_output .= 'Unable to send ' . GetFormattedCurrency($amount->GetInt(), $currency_from_account, true) . ' from account ' . $from_account_id->GetFormatedString() . ' to ' . $to_account_id->GetFormatedString() . '<br>';
+                    $withdraw_output .= '<br>';
+                }
             }
             else
             {
-                $withdraw_output .= 'Transfer ERROR!<br>';
-                $withdraw_output .= 'Unable to send '. GetFormattedCurrency($amount->GetInt(), $currency, true) . ' from account '. $from_account_id->GetFormatedString() . ' to ' . $to_account_id->GetFormatedString() . '<br>';
+                $withdraw_output .= 'ERROR!<br>';
+                $withdraw_output .= 'Different currencies for receiving accounts (' . $currency_to_account . ')';
                 $withdraw_output .= '<br>';
             }
         }
@@ -549,7 +569,7 @@ function Withdraw()
 
         $output .= '<td style="border-style:none;">';
 
-        $output .= MakeHtmlSelectOptions($user_handler, $account_data_list, $account_selected, $currency);
+        $output .= MakeHtmlSelectOptions($user_handler, $account_data_list, $account_selected);
 
         $output .= '</td>';
 
@@ -594,8 +614,6 @@ function ChequeDetails()
     $ask_for_cheque_file = false;
 
     $error_message = '';
-
-    $currency = 'BTC';
 
     $output = '';
 
@@ -890,8 +908,6 @@ function ChequeDetails()
 
 function ListUserCheques()
 {
-    $currency = 'BTC';
-
     if (is_user_logged_in())
     {
         if( ! empty($_REQUEST['select_account']))
@@ -914,9 +930,11 @@ function ListUserCheques()
             $account_data     = $account_data_list[0];
             $account_selected = $account_data->GetAccountId();
         }
-        $cheque_list = $user_handler->GetChequeListCurrentUser($account_selected);
 
-        $html_select_account_form = MakeHtmlFormSelectAccount($user_handler, $account_data_list, $account_selected, $currency);
+        $cheque_list = $user_handler->GetChequeListCurrentUser($account_selected);
+        $currency = $user_handler->GetAccountData($account_selected)->GetCurrency()->GetString();
+
+        $html_select_account_form = MakeHtmlFormSelectAccount($user_handler, $account_data_list, $account_selected);
 
         $html_table = new HtmlTableClass();
         $html_table->AddLineItem('Cheque No.');
@@ -969,7 +987,6 @@ function DrawCheque()
     $input_data['select_account']   = SafeReadGetInt('select_account');
     $input_data['amount']           = SafeReadGetInt('amount');
     $input_data['cheque_no']        = SafeReadGetInt('cheque_no');
-
     $input_data['expired_days']     = SafeReadGetInt('expired_days');
     $input_data['receiver_name']    = SafeReadGetString('receiver_name');
     $input_data['receiver_email']   = SafeReadGetString('receiver_email');
@@ -1164,8 +1181,6 @@ function ClaimCheque()
 
 function ProcessAjaxCreatePngCheque()
 {
-    $currency = 'BTC';
-
     if ( ! empty( $_REQUEST['cheque_no'] ) )
     {
         $cheque_id_val = SanitizeInputInteger($_REQUEST['cheque_no']);
@@ -1176,6 +1191,12 @@ function ProcessAjaxCreatePngCheque()
 
         $user_handler = new UserHandlerClass();
         $cheque = $user_handler->GetCheque($cheque_id, $access_code);
+
+        $currency = $cheque->GetCurrency()->GetString();
+        if($currency == '')
+        {
+            $currency = 'TestBTC';
+        }
 
         if(!is_null($cheque))
         {
@@ -1360,7 +1381,20 @@ function Payment()
             {
                 if(is_user_logged_in())
                 {
-                    $output .= '<p>A payment has been requested. Your have 3 options:</p>';
+                    $amount = SanitizeInputInteger($cheque_request['amount']);
+                    $currency = SanitizeInputText($cheque_request['currency']);
+                    $receiver_name = SanitizeInputText($cheque_request['receiver_name']);
+                    $description = SanitizeInputText($cheque_request['description']);
+
+                    $formated_currency = GetFormattedCurrency($amount, $currency, true, ',');
+
+                    $output .= '<p>A payment has been requested.</p>';
+                    $output .= '<p>';
+                    $output .= 'Pay to: ' . $receiver_name . '<br>';
+                    $output .= 'Description: ' . $description . '<br>';
+                    $output .= 'Price: ' . $formated_currency;
+                    $output .= '</p>';
+                    $output .= '<p> Your have 3 options.</p>';
                     $output .= '<h3>Option 1: Pay now from you bank account</h3>';
                     $output .= '<p>';
                     $output .= DrawPaymentForm($cheque_request);
@@ -1446,7 +1480,7 @@ function Payment()
             $user_handler = new UserHandlerClass();
             $cheque = $user_handler->IssueCheque($account_id, $amount, $expire_seconds, $escrow_seconds, $receiver_name, $lock_address, $receiver_reference);
 
-            $hand = new ChequeHandlerClass();
+            //$hand = new ChequeHandlerClass();
 
             if($cheque != null)
             {

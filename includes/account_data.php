@@ -38,6 +38,7 @@ class AccountDataClass extends DataBaseClass
     const DB_FIELD_USER_ID = 'user_id';
     const DB_FIELD_PASSWORD = 'password';
     const DB_FIELD_NAME = 'name';
+    const DB_FIELD_CURRENCY = 'currency';
 
     /* Metadata describing database fields and data properties: */
     protected $MetaData = array(
@@ -64,6 +65,12 @@ class AccountDataClass extends DataBaseClass
             'db_field_name' => self::DB_FIELD_NAME,
             'db_primary_key'=> false,
             'default_value' => 'Unnamed'
+        ),
+        self::DB_FIELD_CURRENCY => array(
+            'class_type'    => 'CurrencyTypeClass',
+            'db_field_name' => self::DB_FIELD_CURRENCY,
+            'db_primary_key'=> false,
+            'default_value' => 'TestBTC'
         )
     );
 
@@ -141,4 +148,22 @@ class AccountDataClass extends DataBaseClass
     {
         return $this->GetDataObjects(self::DB_FIELD_NAME);
     }
+
+    public function SetCurrency($currency)
+    {
+        $result = false;
+
+        if(SanitizeCurrency($currency))
+        {
+            $result = $this->SetDataObject(self::DB_FIELD_CURRENCY, $currency);
+        }
+
+        return $result;
+    }
+
+    public function GetCurrency()
+    {
+        return $this->GetDataObjects(self::DB_FIELD_CURRENCY);
+    }
+
 }

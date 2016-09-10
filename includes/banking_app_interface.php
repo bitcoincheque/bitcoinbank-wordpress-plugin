@@ -128,12 +128,13 @@ class BankingAppInterface
                     $listed_account_id = $account_data->GetAccountId();
                     $account_name      = $account_data->GetAccountName();
                     $balance           = $cheque_handler->GetUsersAccountBalance($listed_account_id);
+                    $currency          = $account_data->GetCurrency()->GetString();
 
                     $account = array(
                         'account_id' => $listed_account_id->GetString(),
                         'name'       => $account_name->GetString(),
                         'balance'    => $balance->GetString(),
-                        'currency'   => 'BTC'
+                        'currency'   => $currency
                     );
 
                     $account_list[] = $account;
@@ -173,6 +174,8 @@ class BankingAppInterface
 
             $transaction_records_list = $cheque_handler->GetTransactionListForCurrentUser($wp_user_id, $account_id);
             $balance                  = $cheque_handler->GetUsersAccountBalance($account_id);
+            $account_data             = $cheque_handler->GetAccountDataFromWpUser($wp_user_id, $account_id);
+            $currency                 = $account_data->GetCurrency()->GetString();
 
             $transactions = array();
             $count        = 0;
@@ -199,7 +202,7 @@ class BankingAppInterface
             $response_data['acount']        = $account_id->GetString();
             $response_data['transactions']  = $transactions;
             $response_data['balance']       = $balance->GetString();
-            $response_data['currency']      = 'BTC';
+            $response_data['currency']      = $currency;
         }
         else
         {
@@ -264,6 +267,7 @@ class BankingAppInterface
                     $bank_user_id->GetInt(),
                     $account_int,
                     $amount,
+                    $currency_str,
                     $min_expire_sec,
                     $max_escrow_sec,
                     $reference_str,
@@ -305,7 +309,7 @@ class BankingAppInterface
         return $response_data;
     }
 
-    public function DrawCheque($account_int, $amount_int, $receivers_name, $bank_send_to, $lock, $memo, $cc_me)
+    public function DrawCheque($account_int, $amount_int, $currency_str, $receivers_name, $bank_send_to, $lock, $memo, $cc_me)
     {
         if($this->user_logged_in)
         {
@@ -332,6 +336,7 @@ class BankingAppInterface
                     $bank_user_id->GetInt(),
                     $account_int,
                     $amount_int,
+                    $currency_str,
                     $min_expire_sec,
                     $max_escrow_sec,
                     $reference_str,

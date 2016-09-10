@@ -100,7 +100,7 @@ class ChequeDataClass extends DataBaseClass
             'public_data'   => true
         ),
         self::DB_FIELD_CURRENCY       => array(
-            'class_type'    => 'TextTypeClass',
+            'class_type'    => 'CurrencyTypeClass',
             'db_field_name' => self::DB_FIELD_CURRENCY,
             'db_primary_key'=> false,
             'default_value' => '',
@@ -354,7 +354,7 @@ class ChequeDataClass extends DataBaseClass
     {
         $result = false;
 
-        if(SanitizeText($currency))
+        if(SanitizeCurrency($currency))
         {
             $result = $this->SetDataObject(self::DB_FIELD_CURRENCY, $currency);
         }
