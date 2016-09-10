@@ -154,3 +154,22 @@ class PaymentDataFile
         return $this->file_prefix . '_' . $this->base64_encode_padded($json);
     }
 }
+
+function EncodeAndSignBitcoinCheque($cheque_data)
+{
+    $payment_file = new PaymentDataFile();
+    $payment_file->SetDataArray($cheque_data, 'PAYMENT_CHEQUE_');
+    $payment_file->SetFilePrefix('PAYMENT_CHEQUE');
+    $encoded_file = $payment_file->GetEncodedPaymentFile();
+
+    return $encoded_file;
+}
+
+function DecodeAndVerifyPaymentFile($payment_file)
+{
+    $encoded_payment_file = new PaymentDataFile();
+    $encoded_payment_file->SetEncodedPaymentFile($payment_file);
+    $decoded_data = $encoded_payment_file->GetDataArray();
+
+    return $decoded_data;
+}

@@ -163,14 +163,14 @@ class BankingAppInterface
         return $response_data;
     }
 
-    public function GetTransactionList($account_id_int)
+    public function GetTransactionList($input_data)
     {
         if($this->user_logged_in)
         {
             $cheque_handler = new ChequeHandlerClass();
 
             $wp_user_id = new WpUserIdTypeClass($this->wp_user_id);
-            $account_id = new AccountIdTypeClass($account_id_int);
+            $account_id = new AccountIdTypeClass($input_data['account']);
 
             $transaction_records_list = $cheque_handler->GetTransactionListForCurrentUser($wp_user_id, $account_id);
             $balance                  = $cheque_handler->GetUsersAccountBalance($account_id);
@@ -212,14 +212,14 @@ class BankingAppInterface
         return $response_data;
     }
 
-    public function GetAccountInfo($account_id_int)
+    public function GetAccountInfo($input_data)
     {
         if($this->user_logged_in)
         {
 
             $response_data = array(
                 'result'    => 'OK',
-                'acount'    => $account_id_int,
+                'acount'    => $input_data['$account'],
                 'name'      => 'Name',
                 'balance'    => 0
             );
@@ -232,17 +232,17 @@ class BankingAppInterface
         return $response_data;
     }
 
-    public function RequestCheque($account_int, $payment_request_file)
+    public function RequestCheque($input_data)
     {
         if($this->user_logged_in)
         {
             $wp_user_id = new WpUserIdTypeClass($this->wp_user_id);
-            $account_id = new AccountIdTypeClass($account_int);
+            $account_id = new AccountIdTypeClass($input_data['account']);
 
             $cheque_handler    = new ChequeHandlerClass();
             if($cheque_handler->IsWpUserAccountOwner($wp_user_id, $account_id))
             {
-                $payment_request = DecodeAndVerifyPaymentFile($payment_request_file);
+                $payment_request = DecodeAndVerifyPaymentFile($input_data['payment_request']);
 
                 $amount           = SanitizeInputInteger($payment_request['amount']);
                 $currency_str     = SanitizeInputText($payment_request['currency']);
@@ -265,7 +265,7 @@ class BankingAppInterface
 
                 $cheque = $cheque_handler->IssueCheque(
                     $bank_user_id->GetInt(),
-                    $account_int,
+                    $input_data['account'],
                     $amount,
                     $currency_str,
                     $min_expire_sec,
@@ -309,12 +309,12 @@ class BankingAppInterface
         return $response_data;
     }
 
-    public function DrawCheque($account_int, $amount_int, $currency_str, $receivers_name, $bank_send_to, $lock, $memo, $cc_me)
+    public function DrawCheque($input_data)
     {
         if($this->user_logged_in)
         {
             $wp_user_id = new WpUserIdTypeClass($this->wp_user_id);
-            $account_id = new AccountIdTypeClass($account_int);
+            $account_id = new AccountIdTypeClass($input_data['account']);
 
             $cheque_handler    = new ChequeHandlerClass();
             if($cheque_handler->IsWpUserAccountOwner($wp_user_id, $account_id))
@@ -334,20 +334,20 @@ class BankingAppInterface
 
                 $cheque = $cheque_handler->IssueCheque(
                     $bank_user_id->GetInt(),
-                    $account_int,
-                    $amount_int,
-                    $currency_str,
+                    $input_data['account_int'],
+                    $input_data['amount_int'],
+                    $input_data['$currency_str'],
                     $min_expire_sec,
                     $max_escrow_sec,
                     $reference_str,
-                    $receivers_name,
+                    $input_data['receivers_name'],
                     $receiver_address,
                     $receiver_url,
                     $receiver_email,
                     $business_no,
                     $reg_country,
-                    $lock,
-                    $memo,
+                    $input_data['$lock'],
+                    $input_data['$memo'],
                     $user_name->GetString());
 
                 if( ! is_null($cheque))
@@ -363,15 +363,15 @@ class BankingAppInterface
                     $response_data['cheque'] = $cheque_file;
                     $response_data['status'] = 'UNCLAIMED';
 
-                    $email = new EmailCheque($bank_send_to, $cheque_data['cheque_id'], $cheque_data['access_code']);
-                    $email->SetReceiverName($receivers_name);
-                    $email->SetMessage($memo);
+                    $email = new EmailCheque($input_data['bank_send_to'], $cheque_data['cheque_id'], $cheque_data['access_code']);
+                    $email->SetReceiverName($input_data['receivers_name']);
+                    $email->SetMessage($input_data['memo']);
 
                     $current_user = get_user_by('ID', $this->wp_user_id);
                     $from_email = $current_user->user_email;
                     $email->SetFromAddress($from_email);
 
-                    if($cc_me==1)
+                    if($input_data['cc_me']==1)
                     {
                         $email->AddCopyAddress($from_email);
                     }
