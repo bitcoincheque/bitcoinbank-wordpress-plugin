@@ -161,7 +161,7 @@ class UserIdTypeClass extends BaseTypeClass
     protected $MetaData = array(
         'data_type' => 'integer',
         'mysql_type' => 'INT(6)',
-        'data_min'  => 1,
+        'data_min'  => 0,
         'data_max'  => PHP_INT_MAX
     );
     

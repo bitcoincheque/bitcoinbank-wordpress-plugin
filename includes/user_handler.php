@@ -23,174 +23,50 @@
 
 namespace BCF_BitcoinBank;
 
+use BitWasp\Bitcoin\Amount;
+
 require_once('accounting.php');
 require_once('data_types.php');
 
 class UserHandlerClass extends AccountingClass
 {
+    protected $bank_user_id_obj = null;
+
     public function __construct()
     {
         parent::__construct();
 
-        $this->CheckBankUserExistAndCreateNewBankUser();        
-    }
+        $this->CheckBankUserExistAndCreateNewBankUser();
 
-    public function IsCurrentUserAccountOwner($account_id)
-    {
-        $result = false;
 
-        if(SanitizeAccountId($account_id))
+        $current_user = wp_get_current_user();
+
+        $wp_user_obj = new WpUserIdTypeClass($current_user->ID);
+
+        $this->bank_user_id_obj = $this->GetBankUserIdFromWpUser($wp_user_obj);
+
+        if(!is_null($this->bank_user_id_obj))
         {
-            $result = false;
-            if (is_user_logged_in())
-            {
-                $account_owner_id = $this->GetAccountOwner($account_id);
-
-                if($account_owner_id != null)
-                {
-                    $current_user = wp_get_current_user();
-                    $wp_id = new WpUserIdTypeClass($current_user->ID);
-                    $bank_user_id = $this->GetBankUserIdFromWpUser($wp_id);
-
-                    $result = $this->IsBankUserAccountOwner($bank_user_id, $account_id);
-                }
-            }
+            $this->user_logged_in = true;
         }
-        return $result;
-    }
-    
-
-    public function GetAccountListForCurrentUser()
-    {
-        $account_id_list = array();
-
-        if(is_user_logged_in())
-        {
-            $current_user = wp_get_current_user();
-            $bank_user_id = $this->GetBankUserIdFromWpUser($current_user->ID);
-            if($bank_user_id > 0)
-            {
-                $account_id_list = $this->GetAccountIdList($bank_user_id);
-            }
-        }
-
-        return $account_id_list;
     }
 
-    public function GetAccountInfoListCurrentUser()
-    {
-        $account_info_list = array();
-
-        if(is_user_logged_in())
-        {
-            $current_user = wp_get_current_user();
-            $wp_id = new WpUserIdTypeClass($current_user->ID);
-
-            $bank_user_data = $this->GetBankUserDataFromWpUser($wp_id);
-            if(!empty($bank_user_data))
-            {
-                $bank_user_id = $bank_user_data->GetBankUserId();
-                $account_info_list = $this->GetAccountInfoList($bank_user_id);
-            }
-        }
-
-        return $account_info_list;
-    }
-
-    public function GetUsersAccountBalance($account_id)
-    {
-        $balance = null;
-        
-        if(SanitizeAccountId($account_id))
-        {
-            $balance =  $this->GetAccountBalance($account_id);
-        }
-        
-        return $balance;
-    }
-
-    public function GetTransactionListForCurrentUser($account_id)
-    {
-        $transaction_records_list = array();
-
-        if(is_user_logged_in())
-        {
-            if(SanitizeAccountId( $account_id ))
-            {
-                if ( $this->IsCurrentUserAccountOwner( $account_id ) )
-                {
-                    $transaction_records_list = $this->GetTransactionList( $account_id );
-                }
-            }
-        }
-
-        return $transaction_records_list;
-    }
-
-    function MakeTransactionToAccount($account_id_from, $account_id_to, $amount, $currency)
-    {
-        $transaction_id = null;
-
-        if(SanitizeAccountId($account_id_from) and SanitizeAccountId($account_id_to) and SanitizeAmount($amount))
-        {
-            $to_account_owner = $this->GetAccountOwner($account_id_to);
-            if(!is_null($to_account_owner))
-            {
-                if($to_account_owner->HasValidData())
-                {
-                    if ($this->IsCurrentUserAccountOwner($account_id_from))
-                    {
-                        $timestamp = $this->DB_GetCurrentTimeStamp();
-                        $transaction_type_withdraw = new TransactionDirTypeClass('WITHDRAW');
-                        $transaction_type_add = new TransactionDirTypeClass('ADD');
-                        $transaction_id = $this->MakeTransaction(
-                            $account_id_from,
-                            $account_id_to,
-                            $timestamp,
-                            $amount,
-                            $currency,
-                            $transaction_type_withdraw,
-                            $transaction_type_add);
-                    }
-                }
-            }
-        }
-
-        return $transaction_id;
-    }
-
-    public function GetChequeListCurrentUser($issuer_account_id)
-    {
-        $cheque_records_list = array();
-
-        if(SanitizeAccountId($issuer_account_id))
-        {
-            if ($this->IsCurrentUserAccountOwner($issuer_account_id))
-            {
-                $cheque_records_list = $this->GetChequeList($issuer_account_id);
-            }
-        }
-
-        return $cheque_records_list;
-    }
-
-
-    public function CheckBankUserExistAndCreateNewBankUser()
+    private function CheckBankUserExistAndCreateNewBankUser()
     {
         $result = false;
 
         if(is_user_logged_in())
         {
+            $current_user = wp_get_current_user();
+            $wp_user_obj = new WpUserIdTypeClass($current_user->ID);
+
             /* First, check if Wordpress user has a bank user id */
-            $current_user = wp_get_current_user();
-
-            $wp_id = new WpUserIdTypeClass($current_user->ID);
-
-            $bank_user_data = $this->GetBankUserDataFromWpUser($wp_id);
+            $bank_user_data = $this->GetBankUserDataFromWpUser($wp_user_obj);
             if(is_null($bank_user_data))
             {
                 /* WP User has no bank user, create one */
                 $wp_user_id = new WpUserIdTypeClass($current_user->ID);
+
                 $name_str   = $current_user->first_name . ' ' . $current_user->last_name;
                 $name       = new TextTypeClass($name_str);
 
@@ -203,7 +79,7 @@ class UserHandlerClass extends AccountingClass
                 if(!is_null($bank_user_id))
                 {
                     /* Second, create bank account if bank user have non */
-                    $account_info_list = $this->GetAccountInfoList($bank_user_id);
+                    $account_info_list = $this->GetAccounDataList($bank_user_id);
                     if(count($account_info_list) == 0)
                     {
                         $password = new PasswordTypeClass("");
@@ -225,65 +101,173 @@ class UserHandlerClass extends AccountingClass
         return $result;
     }
 
-    public function IssueCheque($issuer_account_id, $amount, $expire_seconds, $escrow_seconds, $receiver_name, $lock_address, $reference)
+    private function BankUserIsLoggedIn()
+    {
+        if(is_user_logged_in() and (!is_null($this->bank_user_id_obj)))
+        {
+            return true;
+        }
+
+        return false;
+    }
+
+    public function GetCurrentUserAccountData($account_id)
+    {
+        $account_data = NULL;
+
+        $from_account_id_obj = new AccountIdTypeClass($account_id);
+        if(SanitizeAccountId($from_account_id_obj))
+        {
+            $account_data = $this->GetAccountData($from_account_id_obj);
+        }
+
+        return $account_data;
+    }
+
+     public function GetCurrentUserAccountInfoList()
+    {
+        $account_info_list = array();
+
+        if($this->BankUserIsLoggedIn())
+        {
+            $account_info_list = $this->GetAccounDataList($this->bank_user_id_obj);
+        }
+
+        return $account_info_list;
+    }
+
+    public function GetCurrentUserAccountBalance($account_id)
+    {
+        $balance = null;
+
+        if($this->BankUserIsLoggedIn())
+        {
+            $from_account_id_obj = new AccountIdTypeClass($account_id);
+            if(SanitizeAccountId($from_account_id_obj))
+            {
+                $balance = $this->GetAccountBalance($from_account_id_obj);
+            }
+        }
+        
+        return $balance;
+    }
+
+    public function GetCurrentUserTransactionList($account_id)
+    {
+        $transaction_records_list = array();
+
+        if($this->BankUserIsLoggedIn())
+        {
+            $account_id_obj = new AccountIdTypeClass($account_id);
+
+            if(SanitizeAccountId( $account_id_obj ))
+            {
+                if ( $this->IsBankUserAccountOwner($this->bank_user_id_obj, $account_id_obj) )
+                {
+                    $transaction_records_list = $this->GetTransactionList( $account_id_obj );
+                }
+            }
+        }
+
+        return $transaction_records_list;
+    }
+
+    function MakeCurrentUserAccountTransaction($account_id_from, $account_id_to, $amount, $currency)
+    {
+        $transaction_id = null;
+
+        if($this->BankUserIsLoggedIn())
+        {
+            $account_id_from_obj = new AccountIdTypeClass($account_id_from);
+            $account_id_to_obj   = new AccountIdTypeClass($account_id_to);
+            $amount_obj      = new ValueTypeClass($amount);
+            $currency_obj      = new CurrencyTypeClass($currency);
+
+            if(SanitizeAccountId($account_id_from_obj) and SanitizeAccountId($account_id_to_obj) and SanitizeAmount($amount_obj) and SanitizeCurrency($currency_obj))
+            {
+                $to_account_owner = $this->GetAccountOwner($account_id_to_obj);
+                if( ! is_null($to_account_owner))
+                {
+                    if($to_account_owner->HasValidData())
+                    {
+                        if($this->IsBankUserAccountOwner($this->bank_user_id_obj, $account_id_from_obj))
+                        {
+                            $timestamp                 = $this->DB_GetCurrentTimeStamp();
+                            $transaction_type_withdraw = new TransactionDirTypeClass('WITHDRAW');
+                            $transaction_type_add      = new TransactionDirTypeClass('ADD');
+
+                            $transaction_id            = $this->MakeTransaction(
+                                $account_id_from_obj,
+                                $account_id_to_obj,
+                                $timestamp,
+                                $amount_obj,
+                                $currency_obj,
+                                $transaction_type_withdraw,
+                                $transaction_type_add);
+                        }
+                    }
+                }
+            }
+        }
+
+        return $transaction_id;
+    }
+
+    public function MakeCurrentUserIssueCheque(
+        $account_id,
+        $amount,
+        $expire_seconds,
+        $escrow_seconds,
+        $receiver_name,
+        $lock_address,
+        $reference,
+        $memo)
     {
         $cheque =null;
 
-        if(SanitizeAccountId($issuer_account_id)
-        and SanitizeAmount($amount)
-        and SanitizePositiveInteger($expire_seconds)
-        and SanitizePositiveIntegerOrZero($escrow_seconds)
-        and SanitizeName($receiver_name)
-        and SanitizeText($lock_address)
-        and SanitizeText($reference)
-        )
+        if($this->BankUserIsLoggedIn())
         {
-            if($this->IsCurrentUserAccountOwner($issuer_account_id))
+            $account_id_obj = new AccountIdTypeClass($account_id);
+            $amount_obj   = new ValueTypeClass($amount);
+
+            if($this->IsBankUserAccountOwner($this->bank_user_id_obj, $account_id_obj))
             {
-                $bank_user_id = $this->GetAccountOwner($issuer_account_id);
 
-                $bank_user_data = $this->DB_GetBankUserData($bank_user_id);
-                $user_name = $bank_user_data->GetName();
+                $bank_user_data = $this->DB_GetBankUserData($this->bank_user_id_obj);
+                $user_name_obj = $bank_user_data->GetName();
 
-                $account_data = $this->GetAccountData($issuer_account_id);
-                if(!is_null($account_data))
+                $account_data_obj = $this->GetAccountData($account_id_obj);
+                if(!is_null($account_data_obj))
                 {
-                    $issue_datetime = $this->DB_GetCurrentTimeStamp();
-                    $cheque_account_id = $this->GetChequeEscrollAccount();
-                    $debit_transaction_type = new TransactionDirTypeClass('ADD');
-                    $credit_transaction_type = new TransactionDirTypeClass('CHEQUE');
-                    $currency = $account_data->GetCurrency();
+                    $currency_obj = $account_data_obj->GetCurrency();
 
-                    $transaction_id = $this->MakeTransaction($issuer_account_id, $cheque_account_id, $issue_datetime, $amount, $currency, $credit_transaction_type, $debit_transaction_type);
+                    $issue_datetime_obj = $this->DB_GetCurrentTimeStamp();
+                    $expire_datetime_obj = new DateTimeTypeClass($issue_datetime_obj->GetSeconds() + $expire_seconds);
+                    $escrow_datetime_obj = new DateTimeTypeClass($issue_datetime_obj->GetSeconds() + $escrow_seconds);
 
-                    if(!is_null($transaction_id))
-                    {
-                        $expire_datetime = new DateTimeTypeClass($issue_datetime->GetSeconds() + $expire_seconds);
-                        $escrow_datetime = new DateTimeTypeClass($issue_datetime->GetSeconds() + $escrow_seconds);
+                    $receiver_name_obj   = new NameTypeClass($receiver_name);
+                    $lock_address_obj   = new TextTypeClass($lock_address);
+                    $reference_obj   = new TextTypeClass($reference);
+                    $memo_obj   = new TextTypeClass($memo);
 
-                        $cheque = $this->CreateCheque(
-                            $issuer_account_id,
-                            $issue_datetime,
-                            $expire_datetime,
-                            $escrow_datetime,
-                            $amount,
-                            $currency,
-                            $reference,
-                            $receiver_name,
-                            null,
-                            null,
-                            null,
-                            null,
-                            null,
-                            $lock_address,
-                            null,
-                            $user_name);
 
-                        if(is_null($cheque))
-                        {
-                            /* TODO Failed to create cheque, maybe need to clean up transaction */
-                        }
-                    }
+                    $cheque = $this->IssueCheque(
+                        $account_id_obj,
+                        $issue_datetime_obj,
+                        $expire_datetime_obj,
+                        $escrow_datetime_obj,
+                        $amount_obj,
+                        $currency_obj,
+                        $reference_obj,
+                        $receiver_name_obj,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        $lock_address_obj,
+                        $memo_obj,
+                        $user_name_obj);
                 }
             }
         }
@@ -291,15 +275,52 @@ class UserHandlerClass extends AccountingClass
         return $cheque;
     }
 
-    public function ClaimCheque($cheque_id, $access_code)
+    public function GetUserCheque($cheque_id, $access_code)
+    {
+        $cheque = null;
+
+        $cheque_id_obj   = new ChequeIdTypeClass($cheque_id);
+        $access_code_obj = new TextTypeClass($access_code);
+
+        if(SanitizeChequeId($cheque_id_obj) and SanitizeText($access_code_obj))
+        {
+            $cheque = $this->GetCheque($cheque_id_obj, $access_code_obj);
+        }
+
+        return $cheque;
+    }
+
+    public function GetCurrentUserChequeList($account_id)
+    {
+        $cheque_records_list = array();
+
+        if($this->BankUserIsLoggedIn())
+        {
+            $account_id_obj = new AccountIdTypeClass($account_id);
+
+            if(SanitizeAccountId($account_id_obj))
+            {
+                if($this->IsBankUserAccountOwner($this->bank_user_id_obj, $account_id_obj))
+                {
+                    $cheque_records_list = $this->GetChequeList($account_id_obj);
+                }
+            }
+        }
+
+        return $cheque_records_list;
+    }
+
+
+    public function ClaimUserCheque($cheque_id, $access_code)
     {
         $result = false;
 
-        if(SanitizeChequeId($cheque_id) and SanitizeText($access_code))
-        {
-            $cheque = $this->DB_GetChequeData($cheque_id);
+        $cheque_id_obj   = new ChequeIdTypeClass($cheque_id);
+        $access_code_obj = new TextTypeClass($access_code);
 
-            $result = $this->ChangeChequeState($cheque, 'CHEQUE_EVENT_CLAIM');
+        if(SanitizeChequeId($cheque_id_obj) and SanitizeText($access_code_obj))
+        {
+            $result = $this->ClaimCheque($cheque_id_obj, $access_code_obj);
         }
 
         return $result;
@@ -309,7 +330,7 @@ class UserHandlerClass extends AccountingClass
     {
         $result = false;
 
-        if(is_user_logged_in())
+        if($this->BankUserIsLoggedIn())
         {
             $name = new NameTypeClass($name_str);
             $country = new TextTypeClass($country_str);
@@ -328,7 +349,7 @@ class UserHandlerClass extends AccountingClass
     {
         $bank_user_data = null;
 
-        if(is_user_logged_in())
+        if($this->BankUserIsLoggedIn())
         {
             $current_user = wp_get_current_user();
             $wp_user = new WpUserIdTypeClass($current_user->ID);

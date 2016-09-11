@@ -24,10 +24,8 @@
 namespace BCF_BitcoinBank;
 
 require_once('user_handler.php');
-require_once('cheque_handler.php');
 require_once('html_table.php');
 require_once('payment_data_codec.php');
-
 require_once('email_cheque.php');
 
 
@@ -43,7 +41,7 @@ class UserInterface
         $formated_currency = GetFormattedCurrency($amount, $cheque_request['currency'], false, ',');
 
         $user_handler = new UserHandlerClass();
-        $account_data_list = $user_handler->GetAccountInfoListCurrentUser();
+        $account_data_list = $user_handler->GetCurrentUserAccountInfoList();
 
         $output .= '<form name="bcf_withdraw_form">';
         $output .= '<table style="border-style:none;" width="100%"><tr>';
@@ -61,11 +59,11 @@ class UserInterface
         $output .= '</tr><tr>';
         $output .= '<td style="border-style:none;">Amount:</td><td style="border-style:none;"><input type="text" style="width:100%;" name="amount" value="' . $formated_currency . '"/></td><td style="border-style:none;">' . $cheque_request['currency'] . '</td>';
         $output .= '</tr><tr>';
-        $output .= '<td style="border-style:none;">Description:</td><td style="border-style:none;"><input type="text" style="width:100%;" value="' . $cheque_request['description'] . '" name="memo" /></td><td style="border-style:none;"></td>';
+        $output .= '<td style="border-style:none;">Description:</td><td style="border-style:none;"><input type="text" style="width:100%;" value="' . $cheque_request['memo'] . '" name="memo" /></td><td style="border-style:none;"></td>';
         $output .= '</tr><tr>';
         $output .= '<td style="border-style:none;"></td><td style="border-style:none;"><a href="withdraw"><input type="submit" value="Make payment"/></a></td><td style="border-style:none;"></td>';
         $output .= '</tr></table>';
-        $output .= '<input type="hidden" name="lock" value="'.$cheque_request['receiver_wallet'].'">';
+        $output .= '<input type="hidden" name="lock" value="'.$cheque_request['lock'].'">';
         $output .= '<input type="hidden" name="receiver_reference" value="'.$cheque_request['ref'].'">';
         $output .= '<input type="hidden" name="currency" value="'.$cheque_request['currency'].'">';
         $output .= '<input type="hidden" name="paylink" value="'.$cheque_request['paylink'].'">';
@@ -86,7 +84,7 @@ class UserInterface
             $account_name_str       = $account_name->GetString();
             $currency               = $account_data->GetCurrency();
             $currency_str           = $currency->GetString();
-            $balance = $user_handler->GetUsersAccountBalance($listed_account_id);
+            $balance                = $user_handler->GetCurrentUserAccountBalance($listed_account_id->GetInt());
             $account_balance_str    = GetFormattedCurrency($balance->GetInt(), $currency_str, true );
 
             $select = '';
@@ -161,7 +159,7 @@ class UserInterface
                 $account_selected = null;
 
                 $user_handler = new UserHandlerClass();
-                $account_data_list = $user_handler->GetAccountInfoListCurrentUser();
+                $account_data_list = $user_handler->GetCurrentUserAccountInfoList();
 
                 $output = '<form name="bcf_withdraw_form">';
                 $output .= '<table style="border-style:none;" width="100%"><tr>';
@@ -200,8 +198,7 @@ class UserInterface
 
                     $selected_account_int = SanitizeInputInteger($input_data['select_account']);
 
-                    $account_id = new AccountIdTypeClass($selected_account_int);
-                    $acount_data = $user_handler->GetAccountData($account_id);
+                    $acount_data = $user_handler->GetCurrentUserAccountData($selected_account_int);
                     $currency = $acount_data->GetCurrency()->GetString();
 
                     if(!is_null($input_data['receiver_name']))
@@ -238,14 +235,20 @@ class UserInterface
                     }
 
 
-                    $amount         = new ValueTypeClass($amount_int);
-                    $receiver_name  = new NameTypeClass($receiver_name_str);
-                    $lock_address   = new TextTypeClass($receiver_email_str);
                     $expire_seconds = $expire_days * 24 * 3600;
                     $escrow_seconds = 0;
-                    $memo           = new TextTypeClass($memo_str);
 
-                    $cheque          = $user_handler->IssueCheque($account_id, $amount, $expire_seconds, $escrow_seconds, $receiver_name, $lock_address, $memo);
+                    $cheque          = $user_handler->MakeCurrentUserIssueCheque(
+                        $selected_account_int,
+                        $amount_int,
+                        $expire_seconds,
+                        $escrow_seconds,
+                        $receiver_name_str,
+                        $receiver_email_str,
+                        '',
+                        $memo_str
+                    );
+
                     $cheque_id_str   = $cheque->GetChequeId()->GetString();
                     $access_code_str = $cheque->GetAccessCode()->GetString();
 
@@ -292,12 +295,9 @@ class UserInterface
                         $cheque_id_val   = SanitizeInputInteger($input_data['cheque_no']);
                         $access_code_str = SanitizeInputText($input_data['access_code']);
 
-                        $cheque_id   = new ChequeIdTypeClass($cheque_id_val);
-                        $access_code = new TextTypeClass($access_code_str);
-
                         $user_handler = new UserHandlerClass();
 
-                        $cheque = $user_handler->GetCheque($cheque_id, $access_code);
+                        $cheque = $user_handler->GetUserCheque($cheque_id_val, $access_code_str);
 
                         if($cheque != null)
                         {
@@ -437,31 +437,31 @@ class UserInterface
             if(!is_null($input_data['select_account'])) {
                 $from_account_id_str = SanitizeInputText( $input_data['select_account'] );
                 $to_account_id_str = intval(SanitizeInputText($input_data['depost_account']));
-                $amount_str = intval(SanitizeInputText($input_data['amount']));
+                $amount_float = SanitizeInputText($input_data['amount']);
+
 
                 $from_account_id = new AccountIdTypeClass(intval($from_account_id_str));
                 $to_account_id = new AccountIdTypeClass(intval($to_account_id_str));
-                $amount = new ValueTypeClass(intval($amount_str));
 
-                $currency_from_account = $user_handler->GetAccountData($from_account_id)->GetCurrency()->GetString();
-                $currency_to_account = $user_handler->GetAccountData($to_account_id)->GetCurrency()->GetString();
+                $currency_from_account = $user_handler->GetCurrentUserAccountData(intval($from_account_id_str))->GetCurrency()->GetString();
+                $currency_to_account = $user_handler->GetCurrentUserAccountData(intval($to_account_id_str))->GetCurrency()->GetString();
+
+                $amount_int = $this->ConvertFloatToIntCurrency($amount_float, $currency_from_account);
 
                 if($currency_from_account == $currency_to_account)
                 {
-                    $currency = new CurrencyTypeClass($currency_from_account);
-
-                    $transaction_id = $user_handler->MakeTransactionToAccount($from_account_id, $to_account_id, $amount, $currency);
+                    $transaction_id = $user_handler->MakeCurrentUserAccountTransaction(intval($from_account_id_str), intval($to_account_id_str), $amount_int, $currency_from_account);
                     if(!is_null($transaction_id))
                     {
                         $withdraw_output .= 'Transfered OK.<br>';
-                        $withdraw_output .= GetFormattedCurrency($amount->GetInt(), $currency_from_account, true) . ' sent from account ' . $from_account_id->GetFormatedString() . ' to ' . $to_account_id->GetFormatedString() . '<br>';
-                        $my_transaction_id = $transaction_id->GetInt() - 1; // Making a internal transfer creats two transactions records in database. My record was the previous one.
+                        $withdraw_output .= GetFormattedCurrency($amount_int, $currency_from_account, true) . ' sent from account ' . $from_account_id->GetFormatedString() . ' to ' . $to_account_id->GetFormatedString() . '<br>';
+                        $my_transaction_id = $transaction_id->GetInt() - 1; // Making a internal transfer creates two transactions records in database. My record was the previous one.
                         $withdraw_output .= '(Transaction ID = ' . $my_transaction_id . ')<br>';
                     }
                     else
                     {
                         $withdraw_output .= 'Transfer ERROR!<br>';
-                        $withdraw_output .= 'Unable to send ' . GetFormattedCurrency($amount->GetInt(), $currency_from_account, true) . ' from account ' . $from_account_id->GetFormatedString() . ' to ' . $to_account_id->GetFormatedString() . '<br>';
+                        $withdraw_output .= 'Unable to send ' . GetFormattedCurrency($amount_int, $currency_from_account, true) . ' from account ' . $from_account_id->GetFormatedString() . ' to ' . $to_account_id->GetFormatedString() . '<br>';
                         $withdraw_output .= '<br>';
                     }
                 }
@@ -479,7 +479,7 @@ class UserInterface
                 $withdraw_output .= '<br>';
             }
 
-            $account_data_list = $user_handler->GetAccountInfoListCurrentUser();
+            $account_data_list = $user_handler->GetCurrentUserAccountInfoList();
 
             $output = '<form name="bcf_withdraw_form">';
             $output .= '<table style="border-style:none;" width="100%"><tr>';
@@ -528,7 +528,7 @@ class UserInterface
             }
 
             $user_handler = new UserHandlerClass();
-            $account_data_list = $user_handler->GetAccountInfoListCurrentUser();
+            $account_data_list = $user_handler->GetCurrentUserAccountInfoList();
 
 
 
@@ -536,7 +536,7 @@ class UserInterface
                 $account_data = $account_data_list[0];
                 $account_selected = $account_data->GetAccountId();
             }
-            $transaction_records_list = $user_handler->GetTransactionListForCurrentUser($account_selected);
+            $transaction_records_list = $user_handler->GetCurrentUserTransactionList($account_selected->GetInt());
             $currency = $account_data->GetCurrency()->GetString();
 
             $html_select_account_form = $this->MakeHtmlFormSelectAccount($user_handler, $account_data_list, $account_selected);
@@ -600,7 +600,8 @@ class UserInterface
     {
         $request_has_cheque_no=false;
         $request_has_access_code=false;
-        $request_has_cheque_file=false;
+        $request_has_hash=false;
+        $request_has_file=false;
 
         $cheque_id_val = -1;
         $access_code_str = '';
@@ -619,7 +620,7 @@ class UserInterface
 
         $output = '';
 
-        if(!is_null($input_data))
+        if(!is_null($input_data['cheque_no']))
         {
             $cheque_id_val = SanitizeInputInteger($input_data['cheque_no']);
             $request_has_cheque_no=true;
@@ -634,16 +635,20 @@ class UserInterface
         if(!is_null($input_data['hash']))
         {
             $payment_cheque_file_url_encoded = SanitizeInputText($input_data['hash']);
-            $request_has_cheque_file=true;
+            $request_has_hash=true;
         }
+
+        if(!is_null($input_data['file']))
+        {
+            $payment_cheque_file_url_encoded = SanitizeInputText($input_data['file']);
+            $request_has_file=true;
+        }
+
 
         if($request_has_cheque_no and $request_has_access_code)
         {
-            $cheque_id   = new ChequeIdTypeClass($cheque_id_val);
-            $access_code = new TextTypeClass($access_code_str);
-
             $user_handler = new UserHandlerClass();
-            $cheque       = $user_handler->GetCheque($cheque_id, $access_code);
+            $cheque       = $user_handler->GetUserCheque($cheque_id_val, $access_code_str);
 
             if($cheque != null)
             {
@@ -669,7 +674,7 @@ class UserInterface
                 $ask_for_cheque_file = true;
             }
         }
-        elseif($request_has_cheque_file)
+        elseif($request_has_file)
         {
             $payment_cheque_file = html_entity_decode($payment_cheque_file_url_encoded);
             $cheque_public_data = DecodeAndVerifyPaymentFile($payment_cheque_file);
@@ -684,8 +689,6 @@ class UserInterface
         }
         else
         {
-            $error_message = 'Invalid cheque request.';
-            $show_error_message = true;
             $ask_for_cheque_no_and_access_code = true;
             $ask_for_cheque_file = true;
         }
@@ -794,7 +797,7 @@ class UserInterface
             $output .= '<h3>Paste Bitcoin Cheque File</h3>';
             $output .= '<p>If you have an Bitcoin Cheque File (looking like a random text starting with the "PAYMENT_CHEQUE", you can paste the text in form below:</p>';
             $output .= '<form>';
-            $output .= '<textarea name="cheque" rows="10" style="width:100%;"></textarea>';
+            $output .= '<textarea name="file" rows="10" style="width:100%;"></textarea>';
             $output .= '<br><br>';
             $output .= '<input type="submit" value="Read Bitcoin Cheque File"/>';
             $output .= '</form>';
@@ -820,7 +823,7 @@ class UserInterface
             }
 
             $user_handler      = new UserHandlerClass();
-            $account_data_list = $user_handler->GetAccountInfoListCurrentUser();
+            $account_data_list = $user_handler->GetCurrentUserAccountInfoList();
 
 
             if($account_selected == null)
@@ -829,8 +832,9 @@ class UserInterface
                 $account_selected = $account_data->GetAccountId();
             }
 
-            $cheque_list = $user_handler->GetChequeListCurrentUser($account_selected);
-            $currency = $user_handler->GetAccountData($account_selected)->GetCurrency()->GetString();
+            $cheque_list = $user_handler->GetCurrentUserChequeList($account_selected->GetInt());
+            $account_data = $user_handler->GetCurrentUserAccountData($account_selected->GetInt());
+            $currency = $account_data->GetCurrency()->GetString();
 
             $html_select_account_form = $this->MakeHtmlFormSelectAccount($user_handler, $account_data_list, $account_selected);
 
@@ -894,11 +898,11 @@ class UserInterface
             $output = '<a href="'.$png_url.'"><img src="'. $png_url . '" height="300" width="800" alt="Loading cheque image..."/></a>';
             $output .= '<p>';
 
-            $cheque_id   = new ChequeIdTypeClass($cheque_id_val);
-            $access_code = new TextTypeClass($access_code_str);
+            //$cheque_id   = new ChequeIdTypeClass($cheque_id_val);
+            //$access_code = new TextTypeClass($access_code_str);
 
             $user_handler = new UserHandlerClass();
-            $cheque = $user_handler->GetCheque($cheque_id, $access_code);
+            $cheque = $user_handler->GetUserCheque($cheque_id_val, $access_code_str);
 
             if($cheque != null)
             {
@@ -953,7 +957,7 @@ class UserInterface
 
                             if($lock_type == 'bitcoin_address')
                             {
-                                if($user_handler->ClaimCheque($cheque_id, $access_code) == true)
+                                if($user_handler->ClaimUserCheque($cheque_id_val, $access_code_str) == true)
                                 {
                                     $output .= '<h3>Cashing ok</h3>';
                                     $output .= 'Cheque money sent to ' . $lock_bitcoin_address;
@@ -978,7 +982,7 @@ class UserInterface
 
                                 if($lock_email_confirmed)
                                 {
-                                    if($user_handler->ClaimCheque($cheque_id, $access_code) == true)
+                                    if($user_handler->ClaimUserCheque($cheque_id_val, $access_code_str) == true)
                                     {
                                         $output .= '<h3>Cashing ok</h3>';
                                         $output .= 'Cheque money sent to ' . $bitcoin_address_str;
@@ -1021,7 +1025,7 @@ class UserInterface
                             $bitcoin_address_str = SanitizeInputText($input_data['bitcoin_address']);
                             $confirm_str = SanitizeInputText($input_data['confirm']);
 
-                            if($user_handler->ClaimCheque($cheque_id, $access_code) == true)
+                            if($user_handler->ClaimUserCheque($cheque_id_val, $access_code_str) == true)
                             {
                                 $output .= '<h3>Cashing ok</h3>';
                                 $output .= '<p>E-mail has been confirmed</p>';
@@ -1103,14 +1107,14 @@ class UserInterface
                         $amount = SanitizeInputInteger($cheque_request['amount']);
                         $currency = SanitizeInputText($cheque_request['currency']);
                         $receiver_name = SanitizeInputText($cheque_request['receiver_name']);
-                        $description = SanitizeInputText($cheque_request['description']);
+                        $memo = SanitizeInputText($cheque_request['memo']);
 
                         $formated_currency = GetFormattedCurrency($amount, $currency, true, ',');
 
                         $output .= '<p>A payment has been requested.</p>';
                         $output .= '<p>';
                         $output .= 'Pay to: ' . $receiver_name . '<br>';
-                        $output .= 'Description: ' . $description . '<br>';
+                        $output .= 'Description: ' . $memo . '<br>';
                         $output .= 'Price: ' . $formated_currency;
                         $output .= '</p>';
                         $output .= '<p> Your have 3 options.</p>';
@@ -1173,7 +1177,8 @@ class UserInterface
                             and !is_null ($input_data['amount'])
                                 and !is_null ($input_data['currency'])
                                     and !is_null ($input_data['receiver_reference'])
-                                        and !is_null ($input_data['paylink']))
+                                        and !is_null ($input_data['memo'])
+                                            and !is_null ($input_data['paylink']))
         {
             $select_account_val = SanitizeInputInteger($input_data['select_account']);
             $amount_float = SanitizeInputText($input_data['amount']);
@@ -1181,6 +1186,7 @@ class UserInterface
             $receiver_name_str = SanitizeInputText($input_data['receiver_name']);
             $lock_addr_str = SanitizeInputText($input_data['lock']);
             $receiver_reference_str = SanitizeInputText($input_data['receiver_reference']);
+            $memo = SanitizeInputText($input_data['memo']);
             $paylink_str = SanitizeInputText($input_data['paylink']);
             $expire_days = 2;
 
@@ -1188,18 +1194,11 @@ class UserInterface
             {
                 $amount_val = $this->ConvertFloatToIntCurrency($amount_float, $currency);
 
-                $account_id = new AccountIdTypeClass($select_account_val);
-                $amount = new ValueTypeClass($amount_val);
-                $receiver_name = new NameTypeClass($receiver_name_str);
-                $lock_address = new TextTypeClass($lock_addr_str);
                 $expire_seconds = $expire_days * 24 * 3600;
                 $escrow_seconds = 0;
-                $receiver_reference = new TextTypeClass($receiver_reference_str);
 
                 $user_handler = new UserHandlerClass();
-                $cheque = $user_handler->IssueCheque($account_id, $amount, $expire_seconds, $escrow_seconds, $receiver_name, $lock_address, $receiver_reference);
-
-                //$hand = new ChequeHandlerClass();
+                $cheque = $user_handler->MakeCurrentUserIssueCheque($select_account_val, $amount_val, $expire_seconds, $escrow_seconds, $receiver_name_str, $lock_addr_str, $receiver_reference_str, $memo);
 
                 if($cheque != null)
                 {

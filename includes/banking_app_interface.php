@@ -21,18 +21,25 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+/* Description
+ * ===========
+ * This class serves as a interface for the Banking App.
+ */
+
 namespace BCF_BitcoinBank;
 
-require_once ('cheque_handler.php');
+
+require_once ('banking_app_handler.php');
 require_once ('email_cheque.php');
 
 
 class BankingAppInterface
 {
-    protected $has_username = false;
-    protected $has_password = false;
-    protected $wp_user_id = null;
-    protected $user_logged_in = false;
+    private $has_username = false;
+    private $has_password = false;
+    private $bank_user_id_obj = null;
+    private $user_logged_in = false;
+    private $wp_user_id = false;
 
     public function __construct($username=null, $password=null)
     {
@@ -63,10 +70,18 @@ class BankingAppInterface
             $wp_user = get_user_by('login', $username);
             if($wp_user != false)
             {
+                $this->wp_user_id = $wp_user->ID;
                 if(wp_check_password($password, $wp_user->data->user_pass, $wp_user->ID))
                 {
-                    $this->wp_user_id = $wp_user->ID;
-                    $this->user_logged_in = true;
+                    $banking_app_handler = new BankingAppHandler();
+
+                    $wp_user_obj = new WpUserIdTypeClass($wp_user->ID);
+
+                    $this->bank_user_id_obj = $banking_app_handler->GetBankUserIdFromWpUser($wp_user_obj);
+                    if(!is_null($this->bank_user_id_obj))
+                    {
+                        $this->user_logged_in = true;
+                    }
                 }
             }
         }
@@ -116,8 +131,8 @@ class BankingAppInterface
     {
         if($this->user_logged_in)
         {
-            $cheque_handler    = new ChequeHandlerClass();
-            $account_data_list = $cheque_handler->GetAccountInfoListFromWpUser($this->wp_user_id);
+            $banking_app_handler    = new BankingAppHandler($this->bank_user_id_obj);
+            $account_data_list = $banking_app_handler->GetUserAccountDataList();
 
             if( ! empty($account_data_list))
             {
@@ -125,13 +140,13 @@ class BankingAppInterface
 
                 foreach($account_data_list as $account_data)
                 {
-                    $listed_account_id = $account_data->GetAccountId();
+                    $account_id        = $account_data->GetAccountId();
                     $account_name      = $account_data->GetAccountName();
-                    $balance           = $cheque_handler->GetUsersAccountBalance($listed_account_id);
+                    $balance           = $banking_app_handler->GetUsersAccountBalance($account_id->GetInt());
                     $currency          = $account_data->GetCurrency()->GetString();
 
                     $account = array(
-                        'account_id' => $listed_account_id->GetString(),
+                        'account_id' => $account_id->GetString(),
                         'name'       => $account_name->GetString(),
                         'balance'    => $balance->GetString(),
                         'currency'   => $currency
@@ -167,39 +182,42 @@ class BankingAppInterface
     {
         if($this->user_logged_in)
         {
-            $cheque_handler = new ChequeHandlerClass();
+            $banking_app_handler = new BankingAppHandler($this->bank_user_id_obj);
 
-            $wp_user_id = new WpUserIdTypeClass($this->wp_user_id);
-            $account_id = new AccountIdTypeClass($input_data['account']);
+            $account_id = $input_data['account'];
 
-            $transaction_records_list = $cheque_handler->GetTransactionListForCurrentUser($wp_user_id, $account_id);
-            $balance                  = $cheque_handler->GetUsersAccountBalance($account_id);
-            $account_data             = $cheque_handler->GetAccountDataFromWpUser($wp_user_id, $account_id);
-            $currency                 = $account_data->GetCurrency()->GetString();
+            $transaction_records_list = $banking_app_handler->GetUserAccountTransactionList($account_id);
+            $balance      = $banking_app_handler->GetUsersAccountBalance($account_id);
+            $account_data = $banking_app_handler->GetUserAccountData($account_id);
+            $currency     = $account_data->GetCurrency()->GetString();
 
             $transactions = array();
-            $count        = 0;
-            foreach(array_reverse($transaction_records_list) as $transaction_record)
+
+            if(!empty($transaction_records_list))
             {
-                $transaction = array(
-                    'id'       => $transaction_record->GetTransactionId()->GetString(),
-                    'datetime' => $transaction_record->GetDateTime()->GetString(),
-                    'type'     => $transaction_record->GetTransactionType()->GetString(),
-                    'amount'   => $transaction_record->GetTransactionAmount()->GetString(),
-                    'balance'  => $transaction_record->GetTransactionBalance()->GetString()
-                );
-
-                $transactions[] = $transaction;
-
-                $count ++;
-                if($count == 25)
+                $count        = 0;
+                foreach(array_reverse($transaction_records_list) as $transaction_record)
                 {
-                    break;
+                    $transaction = array(
+                        'id'       => $transaction_record->GetTransactionId()->GetString(),
+                        'datetime' => $transaction_record->GetDateTime()->GetString(),
+                        'type'     => $transaction_record->GetTransactionType()->GetString(),
+                        'amount'   => $transaction_record->GetTransactionAmount()->GetString(),
+                        'balance'  => $transaction_record->GetTransactionBalance()->GetString()
+                    );
+
+                    $transactions[] = $transaction;
+
+                    $count ++;
+                    if($count == 25)
+                    {
+                        break;
+                    }
                 }
             }
 
             $response_data = $this->FormatOkBaseResponse();
-            $response_data['acount']        = $account_id->GetString();
+            $response_data['acount']        = strval($account_id);
             $response_data['transactions']  = $transactions;
             $response_data['balance']       = $balance->GetString();
             $response_data['currency']      = $currency;
@@ -232,78 +250,92 @@ class BankingAppInterface
         return $response_data;
     }
 
+    private function MakeCheque($banking_app_handler, $input_data)
+    {
+        $amount           = SanitizeInputInteger($input_data['amount']);
+        $min_expire_sec   = SanitizeInputInteger($input_data['min_expire_sec']);
+        $max_escrow_sec   = SanitizeInputInteger($input_data['max_escrow_sec']);
+
+        $currency_str     = SanitizeInputText($input_data['currency']);
+        $receiver_name    = SanitizeInputText($input_data['receiver_name']);
+        $receiver_address = SanitizeInputText($input_data['receiver_address']);
+        $receiver_url     = SanitizeInputText($input_data['receiver_url']);
+        $receiver_email   = SanitizeInputText($input_data['receiver_email']);
+        $business_no      = SanitizeInputText($input_data['business_no']);
+        $reg_country      = SanitizeInputText($input_data['reg_country']);
+        $lock             = SanitizeInputText($input_data['lock']);
+        $reference_str    = SanitizeInputText($input_data['ref']);
+        $memo             = SanitizeInputText($input_data['memo']);
+
+        /* Optional data. Set to empty string if payment file has omitted the fields. */
+        if(is_null($min_expire_sec)) {$min_expire_sec = 172800;}
+        if(is_null($max_escrow_sec)) {$max_escrow_sec = 172800;}
+
+        if(is_null($receiver_name)) {$receiver_name = '';}
+        if(is_null($receiver_address)) {$receiver_address = '';}
+        if(is_null($receiver_url)) {$receiver_url = '';}
+        if(is_null($receiver_email)) {$receiver_email = '';}
+        if(is_null($business_no)) {$business_no = '';}
+        if(is_null($reg_country)) {$reg_country = '';}
+        if(is_null($lock)) {$lock = '';}
+        if(is_null($reference_str)) {$reference_str = '';}
+        if(is_null($memo)) {$memo = '';}
+
+        $bank_user_data = $banking_app_handler->GetUserBankUserData();
+        $user_name      = $bank_user_data->GetName()->GetString();
+
+        $cheque = $banking_app_handler->IssueAccountCheque(
+            $input_data['account'],
+            $amount,
+            $currency_str,
+            $min_expire_sec,
+            $max_escrow_sec,
+            $reference_str,
+            $receiver_name,
+            $receiver_address,
+            $receiver_url,
+            $receiver_email,
+            $business_no,
+            $reg_country,
+            $lock,
+            $memo,
+            $user_name
+        );
+
+        return $cheque;
+    }
+
     public function RequestCheque($input_data)
     {
+        $response_data = '';
+
         if($this->user_logged_in)
         {
-            $wp_user_id = new WpUserIdTypeClass($this->wp_user_id);
-            $account_id = new AccountIdTypeClass($input_data['account']);
+            $banking_app_handler = new BankingAppHandler($this->bank_user_id_obj);
 
-            $cheque_handler    = new ChequeHandlerClass();
-            if($cheque_handler->IsWpUserAccountOwner($wp_user_id, $account_id))
+            $payment_request  = DecodeAndVerifyPaymentFile($input_data['payment_request']);
+
+            foreach($payment_request as $key => $value)
             {
-                $payment_request = DecodeAndVerifyPaymentFile($input_data['payment_request']);
+                $input_data[$key] = $value;
+            }
 
-                $amount           = SanitizeInputInteger($payment_request['amount']);
-                $currency_str     = SanitizeInputText($payment_request['currency']);
-                $paylink_str      = SanitizeInputText($payment_request['paylink']);
-                $receiver_name    = SanitizeInputText($payment_request['receiver_name']);
-                $receiver_address = SanitizeInputText($payment_request['receiver_address']);
-                $receiver_url     = SanitizeInputText($payment_request['receiver_url']);
-                $receiver_email   = SanitizeInputText($payment_request['receiver_email']);
-                $business_no      = SanitizeInputText($payment_request['business_no']);
-                $reg_country      = SanitizeInputText($payment_request['reg_country']);
-                $lock             = SanitizeInputText($payment_request['receiver_wallet']);
-                $min_expire_sec   = SanitizeInputInteger($payment_request['min_expire_sec']);
-                $max_escrow_sec   = SanitizeInputInteger($payment_request['max_escrow_sec']);
-                $reference_str    = SanitizeInputText($payment_request['ref']);
-                $memo             = SanitizeInputText($payment_request['description']);
+            $cheque = $this->MakeCheque($banking_app_handler, $input_data);
 
-                $bank_user_data = $cheque_handler->GetBankUserDataFromWpUser($wp_user_id);
-                $bank_user_id = $bank_user_data->GetBankUserId();
-                $user_name = $bank_user_data->GetName();
+            if( ! is_null($cheque))
+            {
+                $cheque_data = $cheque->GetDataArrayPublicData();
+                $cheque_file = EncodeAndSignBitcoinCheque($cheque_data);
 
-                $cheque = $cheque_handler->IssueCheque(
-                    $bank_user_id->GetInt(),
-                    $input_data['account'],
-                    $amount,
-                    $currency_str,
-                    $min_expire_sec,
-                    $max_escrow_sec,
-                    $reference_str,
-                    $receiver_name,
-                    $receiver_address,
-                    $receiver_url,
-                    $receiver_email,
-                    $business_no,
-                    $reg_country,
-                    $lock,
-                    $memo,
-                    $user_name->GetString());
-
-                if( ! is_null($cheque))
-                {
-                    $cheque_data = $cheque->GetDataArrayPublicData();
-                    $cheque_file = EncodeAndSignBitcoinCheque($cheque_data);
-
-                    $response_data = $this->FormatOkBaseResponse();
-                    $response_data['ver'] = '1';
-                    $response_data['cheque'] = $cheque_file;
-                    $response_data['status'] = 'UNCLAIMED';
-                }
-                else
-                {
-                    $response_data = $this->FormatErrorResponse('Error drawing cheque.');
-                }
+                $response_data           = $this->FormatOkBaseResponse();
+                $response_data['ver']    = '1';
+                $response_data['cheque'] = $cheque_file;
+                $response_data['status'] = 'UNCLAIMED';
             }
             else
             {
-                $response_data = $this->FormatErrorResponse('Invalid account.');
+                $response_data = $this->FormatErrorResponse('Error drawing cheque.');
             }
-        }
-        else
-        {
-            $response_data = $this->FormatErrorResponseInvalidUser('');
         }
 
         return $response_data;
@@ -311,94 +343,54 @@ class BankingAppInterface
 
     public function DrawCheque($input_data)
     {
+        $response_data = '';
+
         if($this->user_logged_in)
         {
-            $wp_user_id = new WpUserIdTypeClass($this->wp_user_id);
-            $account_id = new AccountIdTypeClass($input_data['account']);
+            $banking_app_handler = new BankingAppHandler($this->bank_user_id_obj);
 
-            $cheque_handler    = new ChequeHandlerClass();
-            if($cheque_handler->IsWpUserAccountOwner($wp_user_id, $account_id))
+            $cheque = $this->MakeCheque($banking_app_handler, $input_data);
+
+            if( ! is_null($cheque))
             {
-                $receiver_address = '';
-                $receiver_url     = '';
-                $receiver_email   = '';
-                $business_no      = '';
-                $reg_country      = '';
-                $min_expire_sec   = 172800; // 2 days
-                $max_escrow_sec   = 172800; // 2 days
-                $reference_str    = '';
+                //error_log('Issued   cheque:' . $cheque_json);
+                //error_log($cheque_json);
 
-                $bank_user_data = $cheque_handler->GetBankUserDataFromWpUser($wp_user_id);
-                $bank_user_id = $bank_user_data->GetBankUserId();
-                $user_name = $bank_user_data->GetName();
+                $cheque_data = $cheque->GetDataArrayPublicData();
+                $cheque_file = EncodeAndSignBitcoinCheque($cheque_data);
 
-                $cheque = $cheque_handler->IssueCheque(
-                    $bank_user_id->GetInt(),
-                    $input_data['account_int'],
-                    $input_data['amount_int'],
-                    $input_data['$currency_str'],
-                    $min_expire_sec,
-                    $max_escrow_sec,
-                    $reference_str,
-                    $input_data['receivers_name'],
-                    $receiver_address,
-                    $receiver_url,
-                    $receiver_email,
-                    $business_no,
-                    $reg_country,
-                    $input_data['$lock'],
-                    $input_data['$memo'],
-                    $user_name->GetString());
+                $response_data           = $this->FormatOkBaseResponse();
+                $response_data['ver']    = '1';
+                $response_data['cheque'] = $cheque_file;
+                $response_data['status'] = 'UNCLAIMED';
 
-                if( ! is_null($cheque))
+                $email = new EmailCheque($input_data['bank_send_to'], $cheque_data['cheque_id'], $cheque_data['access_code']);
+                $email->SetReceiverName($input_data['receiver_name']);
+                $email->SetMessage($input_data['memo']);
+
+                $current_user = get_user_by('ID', $this->wp_user_id);
+                $from_email   = $current_user->user_email;
+                $email->SetFromAddress($from_email);
+
+                if($input_data['cc_me'] == 1)
                 {
-                    //error_log('Issued   cheque:' . $cheque_json);
-                    //error_log($cheque_json);
+                    $email->AddCopyAddress($from_email);
+                }
 
-                    $cheque_data = $cheque->GetDataArrayPublicData();
-                    $cheque_file = EncodeAndSignBitcoinCheque($cheque_data);
+                $sent_ok = $email->Send();
 
-                    $response_data = $this->FormatOkBaseResponse();
-                    $response_data['ver'] = '1';
+                if( ! $sent_ok)
+                {
+                    $response_data           = $this->FormatErrorResponse('Could not send e-mail.');
+                    $response_data['ver']    = '1';
                     $response_data['cheque'] = $cheque_file;
                     $response_data['status'] = 'UNCLAIMED';
-
-                    $email = new EmailCheque($input_data['bank_send_to'], $cheque_data['cheque_id'], $cheque_data['access_code']);
-                    $email->SetReceiverName($input_data['receivers_name']);
-                    $email->SetMessage($input_data['memo']);
-
-                    $current_user = get_user_by('ID', $this->wp_user_id);
-                    $from_email = $current_user->user_email;
-                    $email->SetFromAddress($from_email);
-
-                    if($input_data['cc_me']==1)
-                    {
-                        $email->AddCopyAddress($from_email);
-                    }
-
-                    $sent_ok = $email->Send();
-
-                    if(!$sent_ok)
-                    {
-                        $response_data = $this->FormatErrorResponse('Could not send e-mail.');
-                        $response_data['ver'] = '1';
-                        $response_data['cheque'] = $cheque_file;
-                        $response_data['status'] = 'UNCLAIMED';
-                    }
-                }
-                else
-                {
-                    $response_data = $this->FormatErrorResponse('Error drawing cheque.');
                 }
             }
             else
             {
-                $response_data = $this->FormatErrorResponse('Invalid account.');
+                $response_data = $this->FormatErrorResponse('Error drawing cheque.');
             }
-        }
-        else
-        {
-            $response_data = $this->FormatErrorResponseInvalidUser('');
         }
 
         return $response_data;

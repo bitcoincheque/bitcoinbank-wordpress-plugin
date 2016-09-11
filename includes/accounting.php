@@ -88,6 +88,20 @@ class AccountingClass extends DatabaseInterfaceClass
 
         return $bank_user_data;
     }
+
+    protected function GetBankUserData($bank_user_id)
+    {
+        $bank_user_data = null;
+
+        if(SanitizeBankUserId($bank_user_id))
+        {
+            $bank_user_data = $this->DB_GetBankUserData($bank_user_id);
+        }
+
+        return $bank_user_data;
+
+    }
+
     protected function SetBankUserData($bank_user_id, $name, $country)
     {
         $result = false; 
@@ -183,7 +197,7 @@ class AccountingClass extends DatabaseInterfaceClass
 
 
 
-    protected function GetBankUserIdFromWpUser($wp_user_id)
+    public function GetBankUserIdFromWpUser($wp_user_id)
     {
         $bank_user_id = NULL;
 
@@ -220,28 +234,28 @@ class AccountingClass extends DatabaseInterfaceClass
         return $result;
     }
 
-    public function GetAccountData($account_id)
+    protected function GetAccountData($account_id)
     {
-        $account_info = NULL;
+        $account_data = null;
 
         if(SanitizeAccountId($account_id))
         {
-            $account_info = $this->DB_GetAccountData($account_id);
+            $account_data = $this->DB_GetAccountData($account_id);
         }
 
-        return $account_info;
+        return $account_data;
     }
 
-    public function GetAccountInfoList($bank_user_id)
+    protected function GetAccounDataList($bank_user_id)
     {
-        $account_info_list = array();
+        $account_data_list = array();
 
         if(SanitizeBankUserId($bank_user_id))
         {
-            $account_info_list = $this->DB_GetAccountDataList($bank_user_id);
+            $account_data_list = $this->DB_GetAccountDataList($bank_user_id);
         }
 
-        return $account_info_list;
+        return $account_data_list;
     }
     
     protected function GetAccountOwner($account_id)
@@ -279,7 +293,7 @@ class AccountingClass extends DatabaseInterfaceClass
 
     protected function GetAccountBalance($account_id)
     {
-        $balance = -1;
+        $balance = null;
 
         if(SanitizeAccountId($account_id))
         {
@@ -436,7 +450,7 @@ class AccountingClass extends DatabaseInterfaceClass
 
         if(SanitizeBankUserId($bank_user_id))
         {
-            $cheque_account_list = $this->GetAccountInfoList($bank_user_id);
+            $cheque_account_list = $this->GetAccounDataList($bank_user_id);
             $n = count( $cheque_account_list );
             if ( $n > 0 )
             {
@@ -460,7 +474,7 @@ class AccountingClass extends DatabaseInterfaceClass
     }
 
 
-    protected function GetChequeEscrollAccount()
+    private function GetChequeEscrollAccount()
     {
         $cheque_account_id = NULL;
 
@@ -474,7 +488,7 @@ class AccountingClass extends DatabaseInterfaceClass
     }
 
 
-    protected function CreateCheque(
+    private function CreateCheque(
         $issuer_account_id,
         $issue_datetime,
         $expire_datetime,
@@ -494,126 +508,141 @@ class AccountingClass extends DatabaseInterfaceClass
     {
         $cheque = null;
 
-        if(SanitizeAccountId($issuer_account_id)
-            and SanitizeDateTime($issue_datetime)
-            and SanitizeDateTime($expire_datetime)
-            and SanitizeDateTime($escrow_datetime)
-            and SanitizeAmount($amount)
-            and SanitizeCurrency($currency)
-            and SanitizeText($receiver_wallet))
+        if ($amount->GetInt() > 0)
         {
-            /* Optional field, set to null if not used */
-            if (!is_null($reference) and !SanitizeText($reference))
-            {
-                return $cheque;
-            }
-            if (!is_null($receiver_name) and !SanitizeName($receiver_name))
-            {
-                return $cheque;
-            }
-            if (!is_null($receiver_address) and !SanitizeText($receiver_address))
-            {
-                return $cheque;
-            }
-            if  (!is_null($receiver_url) and !SanitizeText($receiver_url))
-            {
-                return $cheque;
-            }
-            if (!is_null($receiver_email) and !SanitizeText($receiver_email))
-            {
-                return $cheque;
-            }
-            if (!is_null($business_no) and !SanitizeText($business_no))
-            {
-                return $cheque;
-            }
-            if (!is_null($reg_country) and !SanitizeText($reg_country))
-            {
-                return $cheque;
-            }
-            if  (!is_null($memo) and !SanitizeText($memo))
-            {
-                return $cheque;
-            }
-            if  (!is_null($user_name) and !SanitizeName($user_name))
-            {
-                return $cheque;
-            }
+            $r1 = rand(1, PHP_INT_MAX - 1);
+            $r2 = rand(1, PHP_INT_MAX - 1);
+            $r = $r1 / $r2;
+            $str = strval($r);
+            $secret_token_str = str_replace('.', '', $str);
+            $secret_token = new TextTypeClass($secret_token_str);
 
-            if ($amount->GetInt() > 0)
+            $state = new ChequeStateTypeClass('UNCLAIMED');
+
+            $cheque = new ChequeDataClass();
+            $cheque->SetChequeState($state);
+            $cheque->SetIssueDateTime($issue_datetime);
+            $cheque->SetExpireDateTime($expire_datetime);
+            $cheque->SetEscrowDateTime($escrow_datetime);
+            $cheque->SetValue($amount);
+            $cheque->SetCurrency($currency);
+            $cheque->SetReceiverReference($reference);
+            $cheque->SetAccessCode($secret_token);
+            $cheque->SetOwnerAccountId($issuer_account_id);
+            $cheque->SetReceiverName($receiver_name);
+            $cheque->SetReceiverAddress($receiver_address);
+            $cheque->SetReceiverUrl($receiver_url);
+            $cheque->SetReceiverEmail($receiver_email);
+            $cheque->SetReceiverBusinessNo($business_no);
+            $cheque->SetReceiverRegCountry($reg_country);
+            $cheque->SetReceiverWallet($receiver_wallet);
+            $cheque->SetDescription($memo);
+            $cheque->SetUserName($user_name);
+
+            $collect_url_str = site_url() . '/wp-admin/admin-ajax.php/';
+            $collect_url = new TextTypeClass($collect_url_str);
+            $cheque->SetCollectUrl($collect_url);
+
+            $cheque_id_value = $this->DB_WriteRecord($cheque);
+
+            if($cheque_id_value > 0)
             {
-                $r1 = rand(1, PHP_INT_MAX - 1);
-                $r2 = rand(1, PHP_INT_MAX - 1);
-                $r = $r1 / $r2;
-                $str = strval($r);
-                $secret_token_str = str_replace('.', '', $str);
-                $secret_token = new TextTypeClass($secret_token_str);
-
-                $state = new ChequeStateTypeClass('UNCLAIMED');
-                
-                $cheque = new ChequeDataClass();
-                $cheque->SetChequeState($state);
-                $cheque->SetIssueDateTime($issue_datetime);
-                $cheque->SetExpireDateTime($expire_datetime);
-                $cheque->SetEscrowDateTime($escrow_datetime);
-                $cheque->SetValue($amount);
-                $cheque->SetCurrency($currency);
-                $cheque->SetReceiverReference($reference);
-                $cheque->SetAccessCode($secret_token);
-                $cheque->SetOwnerAccountId($issuer_account_id);
-                $cheque->SetReceiverName($receiver_name);
-                $cheque->SetReceiverAddress($receiver_address);
-                $cheque->SetReceiverUrl($receiver_url);
-                $cheque->SetReceiverEmail($receiver_email);
-                $cheque->SetReceiverBusinessNo($business_no);
-                $cheque->SetReceiverRegCountry($reg_country);
-                $cheque->SetReceiverWallet($receiver_wallet);
-                $cheque->SetDescription($memo);
-                $cheque->SetUserName($user_name);
-
-                $collect_url_str = site_url() . '/wp-admin/admin-ajax.php/';
-                $collect_url = new TextTypeClass($collect_url_str);
-                $cheque->SetCollectUrl($collect_url);
-
-                $cheque_id_value = $this->DB_WriteRecord($cheque);
-
-                if($cheque_id_value > 0)
-                {
-                    /* Cheque created, add cheque_id */
-                    $cheque_id = new ChequeIdTypeClass($cheque_id_value);
-                    $cheque->SetChequeId($cheque_id);
-                }
-                else
-                {
-                    /* Failed to create cheque, return null */
-                    $cheque = null;
-                }
+                /* Cheque created, add cheque_id */
+                $cheque_id = new ChequeIdTypeClass($cheque_id_value);
+                $cheque->SetChequeId($cheque_id);
+            }
+            else
+            {
+                /* Failed to create cheque, return null */
+                $cheque = null;
             }
         }
 
         return $cheque;
     }
 
-    /*
-    protected function GetChequeRecord($cheque_id)
+    protected function IssueCheque(
+        $issuer_account_id_obj,
+        $issue_datetime_obj,
+        $expire_datetime_obj,
+        $escrow_datetime_obj,
+        $amount_obj,
+        $currency_obj,
+        $reference_obj,
+        $receiver_name_obj,
+        $receiver_address_obj,
+        $receiver_url_obj,
+        $receiver_email_obj,
+        $business_no_obj,
+        $reg_country_obj,
+        $lock_address_obj,
+        $memo_obj,
+        $user_name_obj)
     {
-        $cheque_record = array();
+        $cheque = null;
 
-        if(SanitizeChequeId($cheque_id))
+        if(SanitizeAccountId($issuer_account_id_obj)
+           and SanitizeDateTime($issue_datetime_obj)
+               and SanitizeDateTime($expire_datetime_obj)
+                   and SanitizeDateTime($escrow_datetime_obj)
+                       and SanitizeAmount($amount_obj)
+                           and SanitizeCurrency($currency_obj)
+                               and SanitizeText($lock_address_obj))
         {
-            $record_list = $this->DB_GetChequeData($cheque_id);
-
-            if (count($record_list) == 1)
+            /* Optional field, set to null if not used */
+            if( ! is_null($reference_obj) and ! SanitizeText($reference_obj))
             {
-                $cheque_record = $record_list[0];
+                return $cheque;
+            }
+            if( ! is_null($receiver_name_obj) and ! SanitizeName($receiver_name_obj))
+            {
+                return $cheque;
+            }
+            if( ! is_null($receiver_address_obj) and ! SanitizeText($receiver_address_obj))
+            {
+                return $cheque;
+            }
+            if( ! is_null($receiver_url_obj) and ! SanitizeText($receiver_url_obj))
+            {
+                return $cheque;
+            }
+            if( ! is_null($receiver_email_obj) and ! SanitizeText($receiver_email_obj))
+            {
+                return $cheque;
+            }
+            if( ! is_null($business_no_obj) and ! SanitizeText($business_no_obj))
+            {
+                return $cheque;
+            }
+            if( ! is_null($reg_country_obj) and ! SanitizeText($reg_country_obj))
+            {
+                return $cheque;
+            }
+            if( ! is_null($memo_obj) and ! SanitizeText($memo_obj))
+            {
+                return $cheque;
+            }
+            if( ! is_null($user_name_obj) and ! SanitizeName($user_name_obj))
+            {
+                return $cheque;
+            }
+
+            $debit_transaction_type  = new TransactionDirTypeClass('ADD');
+            $credit_transaction_type = new TransactionDirTypeClass('CHEQUE');
+            $cheque_account_id = $this->GetChequeEscrollAccount();
+
+            $transaction_id = $this->MakeTransaction($issuer_account_id_obj, $cheque_account_id, $issue_datetime_obj, $amount_obj, $currency_obj, $credit_transaction_type, $debit_transaction_type);
+
+            if(SanitizeTransactionId($transaction_id))
+            {
+                $cheque = $this->CreateCheque($issuer_account_id_obj, $issue_datetime_obj, $expire_datetime_obj, $escrow_datetime_obj, $amount_obj, $currency_obj, $reference_obj, $receiver_name_obj, $receiver_address_obj, $receiver_url_obj, $receiver_email_obj, $business_no_obj, $reg_country_obj, $lock_address_obj, $memo_obj, $user_name_obj);
             }
         }
-
-        return $cheque_record;
+        return $cheque;
     }
-    */
 
-    public function GetCheque($cheque_id, $access_code)
+
+    protected function GetCheque($cheque_id, $access_code)
     {
         $cheque = null;
             
@@ -630,6 +659,20 @@ class AccountingClass extends DatabaseInterfaceClass
         }
         
         return $cheque;
+    }
+
+    protected function ClaimCheque($cheque_id_obj, $access_code_obj)
+    {
+        $result = false;
+
+        if(SanitizeChequeId($cheque_id_obj) and SanitizeText($access_code_obj))
+        {
+            $cheque = $this->DB_GetChequeData($cheque_id_obj);
+
+            $result = $this->ChangeChequeState($cheque, 'CHEQUE_EVENT_CLAIM');
+        }
+
+        return $result;
     }
 
     protected function GetChequeList($issuer_account_id)

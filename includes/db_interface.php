@@ -220,6 +220,11 @@ class DatabaseInterfaceClass
                     $bank_user_data = new UserDataClass;
                     $bank_user_data->SetDataFromDbRecord( $record );
                 }
+                else
+                {
+                    error_log('ERROR: WP User has more than one bank user');
+                    die('Error. Duplicate bank user. Contact administrator.');
+                }
             }
         }
 

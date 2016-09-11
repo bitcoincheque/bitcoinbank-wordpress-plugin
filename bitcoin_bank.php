@@ -42,9 +42,9 @@ require_once('includes/user_interface.php');
 
 function SanitizeInputText($text)
 {
-    if (preg_match('/^[A-Za-z0-9 .,;:_~\/\-!@#\$%\^&\*\(\)]+$/', $text))
+    if (preg_match('/^[A-Za-z0-9 .,;:+=?_~\/\-!@#\$%\^&\*\(\)]+$/', $text))
     {
-        return $text;
+        return strval($text);
     }
     else
     {
@@ -135,8 +135,16 @@ function BankingAppInterface_DrawCheque()
     $password                       = SafeReadPostString('password');
     $input_data['account']          = SafeReadPostInt('account');
     $input_data['amount']           = SafeReadPostInt('amount');
+    $input_data['min_expire_sec']   = SafeReadPostInt('min_expire_sec');
+    $input_data['max_escrow_sec']   = SafeReadPostInt('max_escrow_sec');
     $input_data['currency']         = SafeReadPostString('currency');
-    $input_data['receivers_name']   = SafeReadPostString('receivers_name');
+    $input_data['receiver_name']    = SafeReadPostString('receiver_name');
+    $input_data['receiver_address'] = SafeReadPostString('receiver_address');
+    $input_data['receiver_url']     = SafeReadPostString('receiver_url');
+    $input_data['receiver_email']   = SafeReadPostString('receiver_email');
+    $input_data['business_no']      = SafeReadPostString('business_no');
+    $input_data['reg_country']      = SafeReadPostString('reg_country');
+    $input_data['ref']              = SafeReadPostString('ref');
     $input_data['bank_send_to']     = SafeReadPostString('bank_send_to');
     $input_data['lock']             = SafeReadPostString('lock');
     $input_data['memo']             = SafeReadPostString('memo');
@@ -201,6 +209,20 @@ function PaymentInterface_ValidateCheque()
     die();
 }
 
+function PaymentInterface_ClaimCheque()
+{
+    $input_data['cheque_no']        = SafeReadPostInt('cheque_no');
+    $input_data['access_code']      = SafeReadPostString('access_code');
+    $input_data['hash']             = SafeReadPostString('hash');
+    $input_data['transfer_address'] = SafeReadPostString('transfer_address');
+
+    $payment_interface = new PaymentInterface();
+    $response_data = $payment_interface->ClaimCheque($input_data);
+
+    echo json_encode($response_data);
+    die();
+}
+
 function PaymentInterface_CreateChequePng()
 {
     $input_data['cheque_no']        = SafeReadGetInt('cheque_no');
@@ -226,8 +248,9 @@ function UserInterface_DisplayTransactionList()
 function UserInterface_Withdraw()
 {
     $input_data['account']          = SafeReadGetInt('account');
+    $input_data['select_account']   = SafeReadGetInt('select_account');
     $input_data['depost_account']   = SafeReadGetInt('depost_account');
-    $input_data['amount']           = SafeReadGetInt('amount');
+    $input_data['amount']           = SafeReadGetString('amount'); // Float as string
 
     $user_interface = new UserInterface();
     $output = $user_interface->Withdraw($input_data);
@@ -239,6 +262,7 @@ function UserInterface_DisplayChequeDetails()
     $input_data['cheque_no']        = SafeReadGetInt('cheque_no');
     $input_data['access_code']      = SafeReadGetString('access_code');
     $input_data['hash']             = SafeReadGetString('hash');
+    $input_data['file']             = SafeReadGetString('file');
 
     $user_interface = new UserInterface();
     $output = $user_interface->DisplayChequeDetails($input_data);
@@ -270,13 +294,16 @@ function UserInterface_DrawCheque()
 {
     $input_data['state']            = SafeReadGetInt('state');
     $input_data['select_account']   = SafeReadGetInt('select_account');
-    $input_data['amount']           = SafeReadGetInt('amount');
     $input_data['cheque_no']        = SafeReadGetInt('cheque_no');
     $input_data['expired_days']     = SafeReadGetInt('expired_days');
+    $input_data['amount']           = SafeReadGetString('amount'); // Floating number
     $input_data['receiver_name']    = SafeReadGetString('receiver_name');
     $input_data['receiver_email']   = SafeReadGetString('receiver_email');
     $input_data['access_code']      = SafeReadGetString('access_code');
     $input_data['send_email']       = SafeReadGetString('send_email');
+    $input_data['memo']             = SafeReadGetString('memo');
+    $input_data['message']          = SafeReadGetString('message');
+    $input_data['copy_email']       = SafeReadGetString('copy_email');
 
     $user_interface = new UserInterface();
     $output = $user_interface->DrawCheque($input_data);
@@ -302,6 +329,7 @@ function UserInterface_DisplayPaymentForm()
     $input_data['lock']             = SafeReadGetString('lock');
     $input_data['currency']         = SafeReadGetString('currency');
     $input_data['receiver_reference'] = SafeReadGetString('receiver_reference');
+    $input_data['memo']             = SafeReadGetString('memo');
     $input_data['paylink']          = SafeReadGetString('paylink');
     $input_data['payment_request']  = SafeReadGetString('payment_request');
 
@@ -355,6 +383,9 @@ add_action('wp_ajax_get_transactions', 'BCF_BitcoinBank\BankingAppInterface_GetT
 /* Payment interface */
 add_action('wp_ajax_nopriv_validate_payment_cheque', 'BCF_BitcoinBank\PaymentInterface_ValidateCheque');
 add_action('wp_ajax_validate_payment_cheque', 'BCF_BitcoinBank\PaymentInterface_ValidateCheque');
+
+add_action('wp_ajax_nopriv_claim_payment_cheque', 'BCF_BitcoinBank\PaymentInterface_ClaimCheque');
+add_action('wp_ajax_claim_payment_cheque', 'BCF_BitcoinBank\PaymentInterface_ClaimCheque');
 
 add_action('wp_ajax_nopriv_bcf_bitcoinbank_get_cheque_png', 'BCF_BitcoinBank\PaymentInterface_CreateChequePng');
 add_action('wp_ajax_bcf_bitcoinbank_get_cheque_png', 'BCF_BitcoinBank\PaymentInterface_CreateChequePng');
