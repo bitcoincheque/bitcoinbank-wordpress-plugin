@@ -165,14 +165,14 @@ class PaymentInterface
 
                 $filename = plugin_dir_path(__FILE__) . '../bank_logo.png';
 
-                $filename = plugin_dir_path(__FILE__) . '../cheque_template2.png';
+                $filename = plugin_dir_path(__FILE__) . '../cheque_template.png';
 
                 $im = imagecreatefrompng($filename);
 
                 $black = imagecolorallocate($im, 0, 0, 0);
 
-                //imagestring($im, 10, 20, 20, 'Bitcoin Demo Bank', $black);
-                //imagestring($im, 10, 20, 40, 'www.bitcoindemobank.com', $black);
+                imagestring($im, 10, 20, 20, get_bloginfo(), $black);
+                imagestring($im, 10, 20, 40, get_site_url(), $black);
 
                 imagestring($im, 10, 20, 100, 'Pay to : ' . $cheque->GetReceiverName()->GetString(), $black);
                 imagestring($im, 10, 20, 120, 'Locked : ' . $cheque->GetReceiverWallet()->GetString(), $black);
