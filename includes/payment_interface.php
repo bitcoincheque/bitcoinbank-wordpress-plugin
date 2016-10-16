@@ -197,4 +197,29 @@ class PaymentInterface
             }
         }
     }
+
+    public function Ping()
+    {
+        $response_data = array(
+            'result'    => 'OK',
+            'name'      => get_bloginfo()
+        );
+
+        return $response_data;
+    }
+
+    public function GetTrustedBanks()
+    {
+        $trusted_bank_list = array(
+            'https://bitcoindemobank.com',
+            'test.no'
+        );
+
+        $response_data = array(
+            'result'        => 'OK',
+            'trusted_banks' => $trusted_bank_list
+        );
+
+        return $response_data;
+    }
 }

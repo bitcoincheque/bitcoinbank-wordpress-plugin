@@ -234,6 +234,23 @@ function PaymentInterface_CreateChequePng()
     die();
 }
 
+function PaymentInterface_Ping()
+{
+    $payment_interface = new PaymentInterface();
+    $response_data = $payment_interface->Ping();
+
+    echo json_encode($response_data);
+    die();
+}
+
+function PaymentInterface_GetTrustedBanks()
+{
+    $payment_interface = new PaymentInterface();
+    $response_data = $payment_interface->GetTrustedBanks();
+
+    echo json_encode($response_data);
+    die();
+}
 
 function UserInterface_DisplayTransactionList()
 {
@@ -342,8 +359,10 @@ function UserInterface_DisplayPaymentForm()
 function add_meta_data()
 {
     $banking_app_url = site_url() . '/wp-admin/admin-ajax.php';
-
     echo '<link rel="BankingApp" href="' . $banking_app_url . '">' . PHP_EOL;
+
+    $payment_interface_url = site_url() . '/wp-admin/admin-ajax.php';
+    echo '<link rel="MoneyAddress" href="' . $payment_interface_url . '">' . PHP_EOL;
 }
 
 function ActivatePlugin()
@@ -389,6 +408,13 @@ add_action('wp_ajax_claim_payment_cheque', 'BCF_BitcoinBank\PaymentInterface_Cla
 
 add_action('wp_ajax_nopriv_bcf_bitcoinbank_get_cheque_png', 'BCF_BitcoinBank\PaymentInterface_CreateChequePng');
 add_action('wp_ajax_bcf_bitcoinbank_get_cheque_png', 'BCF_BitcoinBank\PaymentInterface_CreateChequePng');
+
+add_action('wp_ajax_ping', 'BCF_BitcoinBank\PaymentInterface_Ping');
+add_action('wp_ajax_nopriv_ping', 'BCF_BitcoinBank\PaymentInterface_Ping');
+
+add_action('wp_ajax_get_trusted_banks', 'BCF_BitcoinBank\PaymentInterface_GetTrustedBanks');
+add_action('wp_ajax_nopriv_get_trusted_banks', 'BCF_BitcoinBank\PaymentInterface_GetTrustedBanks');
+
 
 
 /* Shortcodes for user interface */
